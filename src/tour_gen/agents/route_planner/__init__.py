@@ -7,6 +7,9 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from tour_gen.agents.checkpoint_researcher import CheckpointProposal
 
 
+AGENT_MODEL = "google:gemini-2.5-flash"
+
+
 class OrderedCheckpoint(BaseModel):
     title: str = Field(min_length=1)
     reasoning: str = Field(min_length=1, max_length=240)
@@ -33,6 +36,7 @@ route_planner_agent = Agent[
     RoutePlannerDeps,
     RoutePlanOutput,
 ](
+    model=AGENT_MODEL,
     name="route_planner_agent",
     deps_type=RoutePlannerDeps,
     output_type=RoutePlanOutput,

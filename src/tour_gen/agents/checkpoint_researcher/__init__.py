@@ -6,6 +6,9 @@ from pydantic_ai import Agent, RunContext
 from tour_gen.geoencode import GeocodeResult, Geocoder
 
 
+AGENT_MODEL = "google:gemini-2.5-flash"
+
+
 class CheckpointProposal(BaseModel):
     title: str = Field(min_length=1)
     brief_description: str = Field(min_length=1, max_length=240)
@@ -34,6 +37,7 @@ checkpoint_research_agent = Agent[
     CheckpointResearchDeps,
     CheckpointResearchOutput,
 ](
+    model=AGENT_MODEL,
     name="checkpoint_research_agent",
     deps_type=CheckpointResearchDeps,
     output_type=CheckpointResearchOutput,

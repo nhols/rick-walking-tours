@@ -7,6 +7,9 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from tour_gen.agents.route_planner import RoutePlanOutput
 
 
+AGENT_MODEL = "google:gemini-2.5-flash"
+
+
 class Chapter(BaseModel):
     title: str = Field(min_length=1)
     narration: str = Field(min_length=1)
@@ -25,6 +28,7 @@ chapter_writer_agent = Agent[
     ChapterWriterDeps,
     ChapterWriterOutput,
 ](
+    model=AGENT_MODEL,
     name="chapter_writer_agent",
     deps_type=ChapterWriterDeps,
     output_type=ChapterWriterOutput,

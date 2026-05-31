@@ -2214,11 +2214,15 @@ name = "rick"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "pydantic-ai" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic-ai", specifier = ">=1.104.0" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pydantic-ai", specifier = ">=1.104.0" },
+]
 
 [[package]]
 name = "rpds-py"
