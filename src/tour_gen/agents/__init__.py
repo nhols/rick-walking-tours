@@ -10,12 +10,12 @@ from tour_gen.agents.checkpoint_researcher import (
     CheckpointProposal,
     CheckpointResearchDeps,
     CheckpointResearchOutput,
-    GeocodeResult,
-    Geocoder,
     add_location_instruction,
     checkpoint_research_agent,
-    geocode_checkpoint,
+    estimate_place_distances,
 )
+from tour_gen.geo.distance_matrix import DistanceMatrixEntry
+from tour_gen.geo.geoencode import GeocodeResult, Geocoder
 from tour_gen.agents.route_planner import (
     OrderedCheckpoint,
     RoutePlanOutput,
@@ -35,11 +35,12 @@ __all__ = [
     "CheckpointProposal",
     "CheckpointResearchDeps",
     "CheckpointResearchOutput",
+    "DistanceMatrixEntry",
     "GeocodeResult",
     "Geocoder",
     "add_location_instruction",
     "checkpoint_research_agent",
-    "geocode_checkpoint",
+    "estimate_place_distances",
     "OrderedCheckpoint",
     "RoutePlanOutput",
     "RoutePlannerDeps",

@@ -17,7 +17,7 @@ from tour_gen.agents.route_planner import (
     RoutePlannerDeps,
     route_planner_agent,
 )
-from tour_gen.geoencode import Geocoder
+from tour_gen.geo.geoencode import Geocoder
 from tour_gen.tts.narration import NarrationOutput, narrate_chapters
 from tour_gen.tts.provider import TTSProvider
 

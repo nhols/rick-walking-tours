@@ -7,7 +7,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from tour_gen.agents.checkpoint_researcher import CheckpointProposal
 
 
-AGENT_MODEL = "google:gemini-2.5-flash"
+AGENT_MODEL = "google:gemini-3.1-flash-lite"
 
 
 class OrderedCheckpoint(BaseModel):

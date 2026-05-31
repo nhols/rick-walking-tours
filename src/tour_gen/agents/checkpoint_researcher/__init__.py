@@ -4,17 +4,19 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities.web_search import WebSearch
 
-from tour_gen.geoencode import GeocodeResult, Geocoder
+from tour_gen.geo.distance_matrix import (
+    DistanceMatrixEntry,
+    build_crow_flies_distance_matrix,
+)
+from tour_gen.geo.geoencode import Geocoder
 
 
-AGENT_MODEL = "google:gemini-2.5-flash"
+AGENT_MODEL = "google:gemini-3.1-flash-lite"
 
 
 class CheckpointProposal(BaseModel):
     title: str = Field(min_length=1)
     brief_description: str = Field(min_length=1, max_length=240)
-    lat: float = Field(ge=-90, le=90)
-    lon: float = Field(ge=-180, le=180)
 
 
 class CheckpointResearchOutput(BaseModel):
@@ -33,11 +35,20 @@ WEB_SEARCH: WebSearch[CheckpointResearchDeps] = WebSearch(
 )
 
 
-async def geocode_checkpoint(
+async def estimate_place_distances(
     ctx: RunContext[CheckpointResearchDeps],
-    query: str,
-) -> GeocodeResult:
-    return await ctx.deps.geocoder.geocode(query)
+    place_names: list[str],
+) -> list[DistanceMatrixEntry]:
+    """Return one-way crow-flies distances between place names in kilometers.
+
+    The result only includes one half of the matrix: A>B, never B>A, and never
+    the diagonal.
+    """
+    return await build_crow_flies_distance_matrix(
+        place_names=place_names,
+        location=ctx.deps.location,
+        geocoder=ctx.deps.geocoder,
+    )
 
 
 checkpoint_research_agent = Agent[
@@ -48,7 +59,7 @@ checkpoint_research_agent = Agent[
     name="checkpoint_research_agent",
     deps_type=CheckpointResearchDeps,
     output_type=CheckpointResearchOutput,
-    tools=[geocode_checkpoint],
+    tools=[estimate_place_distances],
     capabilities=[WEB_SEARCH],
     instructions="""
 You propose walking-tour checkpoint candidates from a single user request.
@@ -58,8 +69,13 @@ theme-relevant places rather than generic tourist stops. Prefer sources that
 help explain why each place belongs on this tour.
 
 Return concise proposals for real physical places a user can visit or stand
-near. Geocode every checkpoint before returning it. Only return checkpoints
-with latitude and longitude.
+near.
+
+Use the estimate_place_distances tool before returning final proposals. Give it
+the shortlist of place names you are considering. Use the returned crow-flies
+distances to avoid proposing checkpoints that are implausibly far apart for a
+walking tour, and to adapt to any user requests about walking distance, tour
+duration, compactness, or pace.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.

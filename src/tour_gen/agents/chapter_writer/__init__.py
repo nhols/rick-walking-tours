@@ -8,7 +8,7 @@ from pydantic_ai.capabilities.web_search import WebSearch
 from tour_gen.agents.route_planner import RoutePlanOutput
 
 
-AGENT_MODEL = "google:gemini-2.5-flash"
+AGENT_MODEL = "google:gemini-3.1-flash-lite"
 
 
 class Chapter(BaseModel):

@@ -2,7 +2,7 @@ import os
 from typing import Any
 
 import httpx
-from tour_gen.geoencode import GeocodeResult
+from tour_gen.geo.geoencode import GeocodeResult
 
 
 class MapboxGeocoder:
