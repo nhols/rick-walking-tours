@@ -36,6 +36,7 @@ class CheckpointResearchArtifacts:
 class CheckpointResearchDeps:
     location: str
     geocoder: Geocoder
+    max_checkpoint_distance_km: float = 5.0
     artifacts: CheckpointResearchArtifacts = field(default_factory=CheckpointResearchArtifacts)
 
 
@@ -61,8 +62,29 @@ async def estimate_place_distances(
     )
     for place in distance_matrix_result.geocoded_places:
         ctx.deps.artifacts.geocoded_places[place.place_name] = place
+
+    implausible_distances = [
+        entry
+        for entry in distance_matrix_result.distances
+        if entry.distance_km > ctx.deps.max_checkpoint_distance_km
+    ]
+    if implausible_distances:
+        raise ModelRetry(
+            "The distance matrix is too spread out for this walking tour. "
+            f"Maximum allowed crow-flies distance between any two shortlisted "
+            f"places: {ctx.deps.max_checkpoint_distance_km} km. "
+            f"Distance matrix returned: {_format_distances(distance_matrix_result.distances)}. "
+            f"Distances over the limit: {_format_distances(implausible_distances)}. "
+            f"Geocoded places: {_format_geocoded_places(ctx.deps.artifacts.geocoded_places)}. "
+            "This usually means one or more place names geocoded to the wrong "
+            "city/country, or the shortlist is not compact enough. Call "
+            "estimate_place_distances again with more precise place names in "
+            "the requested location, or choose a more compact shortlist."
+        )
+
     for entry in distance_matrix_result.distances:
-        ctx.deps.artifacts.searched_place_pairs.add(frozenset((entry.from_place, entry.to_place)))
+        pair = frozenset((entry.from_place, entry.to_place))
+        ctx.deps.artifacts.searched_place_pairs.add(pair)
     return distance_matrix_result.distances
 
 
@@ -92,7 +114,9 @@ the shortlist of place names you are considering. Use the returned crow-flies
 distances to avoid proposing checkpoints that are implausibly far apart for a
 walking tour, and to adapt to any user requests about walking distance, tour
 duration, compactness, or pace. Every pair of returned proposals must have been
-checked together in the distance tool.
+checked together in the distance tool. If the distance matrix shows very large
+distances, treat that as a failed geocode or an unsuitable checkpoint set; try
+more precise place names before returning final proposals.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.
@@ -150,3 +174,34 @@ def _format_pairs(pairs: set[frozenset[str]]) -> list[tuple[str, str]]:
         first, second = sorted(pair)
         formatted_pairs.append((first, second))
     return sorted(formatted_pairs)
+
+
+def _format_distances(
+    distances: list[DistanceMatrixEntry],
+) -> list[dict[str, str | float]]:
+    return [
+        {
+            "from_place": distance.from_place,
+            "to_place": distance.to_place,
+            "distance_km": distance.distance_km,
+        }
+        for distance in sorted(
+            distances,
+            key=lambda distance: distance.distance_km,
+            reverse=True,
+        )
+    ]
+
+
+def _format_geocoded_places(
+    places: dict[str, GeocodedPlace],
+) -> list[dict[str, str | float | None]]:
+    return [
+        {
+            "place_name": place.place_name,
+            "lat": place.lat,
+            "lon": place.lon,
+            "formatted_address": place.formatted_address,
+        }
+        for place in sorted(places.values(), key=lambda place: place.place_name)
+    ]
