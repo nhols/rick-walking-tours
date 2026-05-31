@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.geoencode import GeocodeResult, Geocoder
 
@@ -26,6 +27,12 @@ class CheckpointResearchDeps:
     geocoder: Geocoder
 
 
+WEB_SEARCH: WebSearch[CheckpointResearchDeps] = WebSearch(
+    search_context_size="high",
+    max_uses=8,
+)
+
+
 async def geocode_checkpoint(
     ctx: RunContext[CheckpointResearchDeps],
     query: str,
@@ -42,12 +49,17 @@ checkpoint_research_agent = Agent[
     deps_type=CheckpointResearchDeps,
     output_type=CheckpointResearchOutput,
     tools=[geocode_checkpoint],
+    capabilities=[WEB_SEARCH],
     instructions="""
 You propose walking-tour checkpoint candidates from a single user request.
 
+Use web search before proposing checkpoints. Look for specific, interesting,
+theme-relevant places rather than generic tourist stops. Prefer sources that
+help explain why each place belongs on this tour.
+
 Return concise proposals for real physical places a user can visit or stand
-near. Use web search to research candidates and geocode every checkpoint before
-returning it. Only return checkpoints with latitude and longitude.
+near. Geocode every checkpoint before returning it. Only return checkpoints
+with latitude and longitude.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.

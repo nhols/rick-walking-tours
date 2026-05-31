@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.agents.route_planner import RoutePlanOutput
 
@@ -24,6 +25,12 @@ class ChapterWriterDeps:
     route_plan: RoutePlanOutput
 
 
+WEB_SEARCH: WebSearch[ChapterWriterDeps] = WebSearch(
+    search_context_size="high",
+    max_uses=12,
+)
+
+
 chapter_writer_agent = Agent[
     ChapterWriterDeps,
     ChapterWriterOutput,
@@ -32,12 +39,18 @@ chapter_writer_agent = Agent[
     name="chapter_writer_agent",
     deps_type=ChapterWriterDeps,
     output_type=ChapterWriterOutput,
+    capabilities=[WEB_SEARCH],
     instructions="""
 You write narration chapters for an ordered walking-tour route.
 
+Use web search to enrich each chapter with grounded details, little facts,
+useful recommendations, and interesting online research. Prefer specific
+details over generic description.
+
 Return one chapter for every ordered checkpoint. Each chapter title must be
 copied exactly from the provided checkpoint title. Write narration that is
-designed to be spoken aloud.
+designed to be spoken aloud. Each narration should be around 200-1000 words,
+roughly 1-5 minutes of speech.
 """.strip(),
 )
 
