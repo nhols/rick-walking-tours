@@ -41,16 +41,7 @@ WEB_SEARCH: WebSearch[ChapterWriterDeps] = WebSearch(
 )
 
 
-chapter_writer_agent = Agent[
-    ChapterWriterDeps,
-    ChapterWriterOutput,
-](
-    model=AGENT_MODEL,
-    name="chapter_writer_agent",
-    deps_type=ChapterWriterDeps,
-    output_type=ChapterWriterOutput,
-    capabilities=[WEB_SEARCH],
-    instructions="""
+CHAPTER_WRITER_INSTRUCTIONS = """
 You write narration chapters for an ordered walking-tour route.
 
 Use web search to enrich each chapter with grounded details, little facts,
@@ -75,7 +66,19 @@ something else.
 You may use square-bracket performance tags sparingly inside narration where
 they improve the spoken result, for example [softly], [brief pause], or
 [with a smile]. Do not overuse them.
-""".strip(),
+""".strip()
+
+
+chapter_writer_agent = Agent[
+    ChapterWriterDeps,
+    ChapterWriterOutput,
+](
+    model=AGENT_MODEL,
+    name="chapter_writer_agent",
+    deps_type=ChapterWriterDeps,
+    output_type=ChapterWriterOutput,
+    capabilities=[WEB_SEARCH],
+    instructions=CHAPTER_WRITER_INSTRUCTIONS,
 )
 
 
