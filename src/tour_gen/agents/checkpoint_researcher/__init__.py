@@ -7,7 +7,8 @@ from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.geo.distance_matrix import (
     DistanceMatrixEntry,
-    build_crow_flies_distance_matrix,
+    GeocodedPlace,
+    build_crow_flies_distance_matrix_result,
 )
 from tour_gen.geo.geoencode import Geocoder
 
@@ -28,6 +29,7 @@ class CheckpointResearchOutput(BaseModel):
 @dataclass
 class CheckpointResearchArtifacts:
     searched_place_pairs: set[frozenset[str]] = field(default_factory=set)
+    geocoded_places: dict[str, GeocodedPlace] = field(default_factory=dict)
 
 
 @dataclass
@@ -52,16 +54,16 @@ async def estimate_place_distances(
     The result only includes one half of the matrix: A>B, never B>A, and never
     the diagonal.
     """
-    distance_matrix = await build_crow_flies_distance_matrix(
+    distance_matrix_result = await build_crow_flies_distance_matrix_result(
         place_names=place_names,
         location=ctx.deps.location,
         geocoder=ctx.deps.geocoder,
     )
-    for entry in distance_matrix:
-        ctx.deps.artifacts.searched_place_pairs.add(
-            frozenset((entry.from_place, entry.to_place))
-        )
-    return distance_matrix
+    for place in distance_matrix_result.geocoded_places:
+        ctx.deps.artifacts.geocoded_places[place.place_name] = place
+    for entry in distance_matrix_result.distances:
+        ctx.deps.artifacts.searched_place_pairs.add(frozenset((entry.from_place, entry.to_place)))
+    return distance_matrix_result.distances
 
 
 checkpoint_research_agent = Agent[
@@ -108,19 +110,11 @@ def validate_checkpoint_distances_were_checked(
     ctx: RunContext[CheckpointResearchDeps],
     output: CheckpointResearchOutput,
 ) -> CheckpointResearchOutput:
-    returned_place_names = [
-        proposal.distance_tool_place_name for proposal in output.proposals
-    ]
-    returned_pairs = {
-        frozenset(pair) for pair in combinations(returned_place_names, 2)
-    }
+    returned_place_names = [proposal.distance_tool_place_name for proposal in output.proposals]
+    returned_pairs = {frozenset(pair) for pair in combinations(returned_place_names, 2)}
 
     duplicate_place_names = sorted(
-        {
-            place_name
-            for place_name in returned_place_names
-            if returned_place_names.count(place_name) > 1
-        }
+        {place_name for place_name in returned_place_names if returned_place_names.count(place_name) > 1}
     )
     if duplicate_place_names:
         raise ModelRetry(

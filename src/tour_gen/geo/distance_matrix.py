@@ -15,12 +15,39 @@ class DistanceMatrixEntry(BaseModel):
     distance_km: float = Field(ge=0)
 
 
+class GeocodedPlace(BaseModel):
+    place_name: str = Field(min_length=1)
+    query: str = Field(min_length=1)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    formatted_address: str | None = None
+
+
+class CrowFliesDistanceMatrixResult(BaseModel):
+    geocoded_places: list[GeocodedPlace]
+    distances: list[DistanceMatrixEntry]
+
+
 async def build_crow_flies_distance_matrix(
     *,
     place_names: list[str],
     location: str,
     geocoder: Geocoder,
 ) -> list[DistanceMatrixEntry]:
+    result = await build_crow_flies_distance_matrix_result(
+        place_names=place_names,
+        location=location,
+        geocoder=geocoder,
+    )
+    return result.distances
+
+
+async def build_crow_flies_distance_matrix_result(
+    *,
+    place_names: list[str],
+    location: str,
+    geocoder: Geocoder,
+) -> CrowFliesDistanceMatrixResult:
     geocoded_places = await asyncio.gather(
         *[
             geocoder.geocode(f"{place_name}, {location}")
@@ -33,28 +60,42 @@ async def build_crow_flies_distance_matrix(
     ]
 
     entries: list[DistanceMatrixEntry] = []
-    for from_index, (from_place, from_lat, from_lon) in enumerate(coordinates):
-        for to_place, to_lat, to_lon in coordinates[from_index + 1 :]:
+    for from_index, from_place in enumerate(coordinates):
+        for to_place in coordinates[from_index + 1 :]:
             entries.append(
                 DistanceMatrixEntry(
-                    from_place=from_place,
-                    to_place=to_place,
+                    from_place=from_place.place_name,
+                    to_place=to_place.place_name,
                     distance_km=round(
-                        _haversine_km(from_lat, from_lon, to_lat, to_lon),
+                        _haversine_km(
+                            from_place.lat,
+                            from_place.lon,
+                            to_place.lat,
+                            to_place.lon,
+                        ),
                         2,
                     ),
                 )
             )
-    return entries
+    return CrowFliesDistanceMatrixResult(
+        geocoded_places=coordinates,
+        distances=entries,
+    )
 
 
 def _require_coordinates(
     place_name: str,
     result: GeocodeResult,
-) -> tuple[str, float, float]:
+) -> GeocodedPlace:
     if result.lat is None or result.lon is None:
         raise ValueError(f"Could not geocode place: {place_name}")
-    return place_name, result.lat, result.lon
+    return GeocodedPlace(
+        place_name=place_name,
+        query=result.query,
+        lat=result.lat,
+        lon=result.lon,
+        formatted_address=result.formatted_address,
+    )
 
 
 def _haversine_km(
