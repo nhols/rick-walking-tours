@@ -16,13 +16,23 @@ class Chapter(BaseModel):
     narration: str = Field(min_length=1)
 
 
+class TTSStyle(BaseModel):
+    scene_setting: str = Field(min_length=1, max_length=600)
+    tone: str = Field(min_length=1, max_length=240)
+    pace: str = Field(min_length=1, max_length=120)
+    accent: str | None = Field(default=None, max_length=120)
+    performance_notes: list[str] = Field(default_factory=list)
+
+
 class ChapterWriterOutput(BaseModel):
+    tts_style: TTSStyle
     chapters: list[Chapter] = Field(min_length=1)
 
 
 @dataclass
 class ChapterWriterDeps:
     route_plan: RoutePlanOutput
+    voice_style: str | None = None
 
 
 WEB_SEARCH: WebSearch[ChapterWriterDeps] = WebSearch(
@@ -51,6 +61,20 @@ Return one chapter for every ordered checkpoint. Each chapter title must be
 copied exactly from the provided checkpoint title. Write narration that is
 designed to be spoken aloud. Each narration should be around 200-1000 words,
 roughly 1-5 minutes of speech.
+
+Return one tour-level tts_style for the full audio tour.
+
+The tts_style should match any user-provided voice style guide first and
+foremost. Treat that guide as the source of truth for tone, accent, pacing,
+energy, delivery, and performance preferences. If the user voice style guide is
+not provided, or if it leaves gaps, fill those gaps using the tour's topic,
+location, audience, and narrative arc. For example, an Edinburgh Harry Potter
+tour would usually suit a British narration style unless the user asks for
+something else.
+
+You may use square-bracket performance tags sparingly inside narration where
+they improve the spoken result, for example [softly], [brief pause], or
+[with a smile]. Do not overuse them.
 """.strip(),
 )
 
@@ -61,11 +85,18 @@ def add_route_plan_instruction(ctx: RunContext[ChapterWriterDeps]) -> str:
         f"- {checkpoint.title}: {checkpoint.reasoning}"
         for checkpoint in ctx.deps.route_plan.ordered_checkpoints
     ]
-    return (
+    instructions = (
         f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\n"
         "Ordered checkpoints:\n"
         + "\n".join(checkpoint_lines)
     )
+    if ctx.deps.voice_style:
+        instructions += (
+            "\n\n"
+            "User voice style guide:\n"
+            f"{ctx.deps.voice_style}"
+        )
+    return instructions
 
 
 @chapter_writer_agent.output_validator

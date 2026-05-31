@@ -2214,6 +2214,7 @@ name = "rick"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "google-genai" },
     { name = "httpx" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
@@ -2221,6 +2222,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "google-genai", specifier = ">=2.7.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-ai", specifier = ">=1.104.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },

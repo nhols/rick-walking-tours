@@ -16,7 +16,8 @@ from tour_gen.agents.route_planner import (
     route_planner_agent,
 )
 from tour_gen.geoencode import Geocoder
-from tour_gen.tts import NarrationOutput, TTSProvider, narrate_chapters
+from tour_gen.tts.narration import NarrationOutput, narrate_chapters
+from tour_gen.tts.provider import TTSProvider
 
 
 class TourGenerationOutput(BaseModel):
@@ -33,8 +34,9 @@ async def generate_tour(
     geocoder: Geocoder,
     tts_provider: TTSProvider,
     voice: str,
+    voice_style: str | None = None,
     tts_model: str | None = None,
-    audio_format: str = "mp3",
+    audio_format: str = "wav",
 ) -> TourGenerationOutput:
     checkpoint_research_result = await checkpoint_research_agent.run(
         user_request,
@@ -50,7 +52,7 @@ async def generate_tour(
 
     chapter_result = await chapter_writer_agent.run(
         "Write narration chapters for the ordered checkpoints.",
-        deps=ChapterWriterDeps(route_plan=route_plan),
+        deps=ChapterWriterDeps(route_plan=route_plan, voice_style=voice_style),
     )
     chapters = chapter_result.output
 
