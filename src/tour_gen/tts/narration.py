@@ -32,6 +32,12 @@ async def narrate_chapters(
     instructions: str | None = None,
     provider_options: dict[str, Any] | None = None,
 ) -> NarrationOutput:
+    # TODO: Narrator performance can still drift between chapter requests. Gemini TTS
+    # is prompt-steered and text-only, with a 32k-token session limit, but it does
+    # not expose a hard style-lock or voice-reference mechanism:
+    # https://ai.google.dev/gemini-api/docs/speech-generation
+    # Open problem: compare per-chapter requests with a single long prompt plus
+    # post-splitting, since long prompts may introduce their own style variation.
     chapters = await asyncio.gather(
         *[
             narrate_chapter(
