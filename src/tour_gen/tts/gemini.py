@@ -36,7 +36,11 @@ class GeminiTTSProvider(TTSProvider):
     async def synthesize(self, request: TTSRequest) -> TTSResult:
         model = request.model or self.model
         voice = request.voice or self.voice
-        prompt = _build_tts_prompt(request.text, request.tts_style, request.instructions)
+        prompt = _build_tts_prompt(
+            request.text,
+            request.tts_style,
+            request.instructions,
+        )
 
         response = await self.client.aio.models.generate_content(
             model=model,
@@ -53,8 +57,7 @@ class GeminiTTSProvider(TTSProvider):
             ),
         )
 
-        inline_data = response.candidates[0].content.parts[0].inline_data
-        pcm_audio = _decode_audio_data(inline_data.data)
+        pcm_audio, source_media_type = _extract_audio_data(response)
         wav_audio = _pcm_to_wav(pcm_audio)
 
         return TTSResult(
@@ -65,7 +68,7 @@ class GeminiTTSProvider(TTSProvider):
             model=model,
             provider_metadata={
                 "provider": "gemini",
-                "source_media_type": inline_data.mime_type,
+                "source_media_type": source_media_type,
             },
         )
 
@@ -104,6 +107,22 @@ def _decode_audio_data(data: bytes | str) -> bytes:
     if isinstance(data, str):
         return base64.b64decode(data)
     return data
+
+
+def _extract_audio_data(
+    response: types.GenerateContentResponse,
+) -> tuple[bytes, str | None]:
+    parts = response.parts
+    if not parts:
+        raise RuntimeError("Gemini TTS response did not include any content parts.")
+
+    for part in parts:
+        inline_data = part.inline_data
+        if inline_data is None or inline_data.data is None:
+            continue
+        return _decode_audio_data(inline_data.data), inline_data.mime_type
+
+    raise RuntimeError("Gemini TTS response did not include inline audio data.")
 
 
 def _pcm_to_wav(
