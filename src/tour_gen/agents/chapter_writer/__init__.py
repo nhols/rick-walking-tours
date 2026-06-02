@@ -9,6 +9,7 @@ from tour_gen.agents.route_planner import RoutePlanOutput
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
+TOUR_TITLE_MAX_WORDS = 8
 
 
 class Chapter(BaseModel):
@@ -25,6 +26,7 @@ class TTSStyle(BaseModel):
 
 
 class ChapterWriterOutput(BaseModel):
+    tour_title: str = Field(min_length=1, max_length=80)
     tts_style: TTSStyle
     chapters: list[Chapter] = Field(min_length=1)
 
@@ -47,6 +49,9 @@ You write narration chapters for an ordered walking-tour route.
 Use web search to enrich each chapter with grounded details, little facts,
 useful recommendations, and interesting online research. Prefer specific
 details over generic description.
+
+Return a concise tour_title for the full tour, with no more than 8 words.
+The tour_title should be polished and specific enough to display in the app.
 
 Return one chapter for every ordered checkpoint. Each chapter title must be
 copied exactly from the provided checkpoint title. Write narration that is
@@ -106,6 +111,14 @@ def validate_chapters(
     ctx: RunContext[ChapterWriterDeps],
     output: ChapterWriterOutput,
 ) -> ChapterWriterOutput:
+    title_word_count = word_count(output.tour_title)
+    if title_word_count > TOUR_TITLE_MAX_WORDS:
+        raise ModelRetry(
+            "Invalid tour title. "
+            f"The tour_title must be {TOUR_TITLE_MAX_WORDS} words or fewer. "
+            f"Model returned {title_word_count} words: {output.tour_title!r}."
+        )
+
     expected_titles = [checkpoint.title for checkpoint in ctx.deps.route_plan.ordered_checkpoints]
     returned_titles = [chapter.title for chapter in output.chapters]
 
@@ -119,3 +132,7 @@ def validate_chapters(
         )
 
     return output
+
+
+def word_count(value: str) -> int:
+    return len([word for word in value.strip().split() if word])

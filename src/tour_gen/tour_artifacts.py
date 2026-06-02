@@ -11,6 +11,7 @@ from tour_gen.pipeline import CheckpointCoordinates, TourGenerationOutput
 
 class TourArtifactMetadata(BaseModel):
     id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
     location: str = Field(min_length=1)
     generated_at: datetime
@@ -124,6 +125,7 @@ def tour_output_to_artifact(
     return TourArtifact(
         metadata=TourArtifactMetadata(
             id=slugify(prompt),
+            title=output.chapters.tour_title,
             prompt=prompt,
             location=location,
             generated_at=generated_at,
@@ -190,7 +192,7 @@ def tour_artifact_to_frontend(artifact: TourArtifact) -> FrontendTour:
 
     return FrontendTour(
         id=artifact.metadata.id,
-        title=artifact.metadata.prompt,
+        title=artifact.metadata.title,
         location=artifact.metadata.location,
         generatedAt=artifact.metadata.generated_at,
         narrativeArc=artifact.route_plan.narrative_arc,

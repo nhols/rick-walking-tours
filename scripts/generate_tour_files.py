@@ -25,19 +25,19 @@ DEFAULT_PROMPT = "Harry Potter themed walking tour in Edinburgh"
 DEFAULT_LOCATION = "Edinburgh"
 DEFAULT_VOICE_STYLE = None
 DATA_DIR = PROJECT_ROOT / "data"
+TOURS_DIR = DATA_DIR / "tours"
 logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
     generated_at = datetime.now()
-    output_dir = DATA_DIR / f"tour_{generated_at.strftime('%Y%m%d_%H%M%S')}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    TOURS_DIR.mkdir(parents=True, exist_ok=True)
 
     logger.info(
-        "Generating tour prompt=%s location=%s output_dir=%s",
+        "Generating tour prompt=%s location=%s tours_dir=%s",
         DEFAULT_PROMPT,
         DEFAULT_LOCATION,
-        output_dir,
+        TOURS_DIR,
     )
 
     pipeline_output = await generate_tour(
@@ -57,25 +57,29 @@ async def main() -> None:
         voice=GEMINI_TTS_VOICE,
         generated_at=generated_at,
     )
-    write_audio_files(pipeline_output.narration.chapters, artifact, output_dir)
+    tour_files_dir = TOURS_DIR / artifact.metadata.id
+    tour_files_dir.mkdir(parents=True, exist_ok=True)
+    write_audio_files(pipeline_output.narration.chapters, artifact, tour_files_dir)
 
-    artifact_path = output_dir / "tour_artifact.json"
+    artifact_path = tour_files_dir / "tour_artifact.json"
     write_json(artifact_path, artifact.model_dump(mode="json"))
 
     frontend_tour = tour_artifact_to_frontend(artifact)
-    frontend_path = output_dir / "frontend_tour.json"
+    frontend_path = tour_files_dir / "frontend_tour.json"
     write_json(frontend_path, frontend_tour.model_dump(mode="json"))
 
     logger.info(
-        "Tour files written artifact_path=%s frontend_path=%s",
+        "Tour files written artifact_path=%s frontend_path=%s tour_files_dir=%s",
         artifact_path,
         frontend_path,
+        tour_files_dir,
     )
     print(
         json.dumps(
             {
-                "output_dir": str(output_dir),
+                "tours_dir": str(TOURS_DIR),
                 "artifact_path": str(artifact_path),
+                "tour_files_dir": str(tour_files_dir),
                 "frontend_path": str(frontend_path),
             },
             indent=2,
