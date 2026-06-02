@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any
 
+import logfire
 from pydantic import BaseModel, Field
 
 from tour_gen.agents.chapter_writer import Chapter, ChapterWriterOutput, TTSStyle
@@ -38,21 +39,30 @@ async def narrate_chapters(
     # https://ai.google.dev/gemini-api/docs/speech-generation
     # Open problem: compare per-chapter requests with a single long prompt plus
     # post-splitting, since long prompts may introduce their own style variation.
-    chapters = await asyncio.gather(
-        *[
-            narrate_chapter(
-                chapter,
-                tts_provider,
-                voice=voice,
-                model=model,
-                audio_format=audio_format,
-                instructions=instructions,
-                tts_style=chapter_output.tts_style,
-                provider_options=provider_options,
-            )
-            for chapter in chapter_output.chapters
-        ]
-    )
+    with logfire.span(
+        "Generate chapter TTS",
+        chapter_count=len(chapter_output.chapters),
+        voice=voice,
+        model=model,
+        audio_format=audio_format,
+        has_instructions=instructions is not None,
+        has_tts_style=chapter_output.tts_style is not None,
+    ):
+        chapters = await asyncio.gather(
+            *[
+                narrate_chapter(
+                    chapter,
+                    tts_provider,
+                    voice=voice,
+                    model=model,
+                    audio_format=audio_format,
+                    instructions=instructions,
+                    tts_style=chapter_output.tts_style,
+                    provider_options=provider_options,
+                )
+                for chapter in chapter_output.chapters
+            ]
+        )
     return NarrationOutput(chapters=chapters)
 
 
