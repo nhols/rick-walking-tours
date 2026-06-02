@@ -41,6 +41,13 @@ function selectStop(id){
   selected=id;
   Object.entries(markers).forEach(([markerId,el])=>el.classList.toggle('selected',markerId===selected));
 }
+function fitTour(duration=0){
+  if(!stops.length) return;
+  map.fitBounds(
+    stops.reduce((b,s)=>b.extend([s.position.lon,s.position.lat]),new maplibregl.LngLatBounds()),
+    {padding:{top:145,bottom:210,left:44,right:44},duration}
+  );
+}
 stops.forEach(stop=>{
   const el=document.createElement('button');
   markers[stop.id]=el;
@@ -50,15 +57,19 @@ stops.forEach(stop=>{
   new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([stop.position.lon,stop.position.lat]).addTo(map);
 });
 selectStop(selected);
+function handleMessage(data){
+  if(data?.type==='selectStop') selectStop(data.id);
+  if(data?.type==='recenterTour') fitTour(700);
+}
 window.addEventListener('message',event=>{
-  if(event.data?.type==='selectStop') selectStop(event.data.id);
+  handleMessage(event.data);
   if(typeof event.data==='string') {
     try {
       const data=JSON.parse(event.data);
-      if(data.type==='selectStop') selectStop(data.id);
+      handleMessage(data);
     } catch {}
   }
 });
-map.fitBounds(stops.reduce((b,s)=>b.extend([s.position.lon,s.position.lat]),new maplibregl.LngLatBounds()),{padding:{top:145,bottom:210,left:44,right:44},duration:0});
+fitTour();
 </script></body></html>`;
 }

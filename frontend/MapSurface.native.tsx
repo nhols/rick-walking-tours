@@ -7,15 +7,27 @@ type Props = {
   tour: Parameters<typeof mapHtml>[0];
   selectedStopId: string;
   onSelectStop: (stopId: string) => void;
+  recenterSignal: number;
 };
 
-export default function MapSurface({ tour, selectedStopId, onSelectStop }: Props) {
+export default function MapSurface({
+  tour,
+  selectedStopId,
+  onSelectStop,
+  recenterSignal,
+}: Props) {
   const webViewRef = useRef<WebView>(null);
   const html = useMemo(() => mapHtml(tour), [tour]);
 
   useEffect(() => {
     webViewRef.current?.postMessage(JSON.stringify({ type: 'selectStop', id: selectedStopId }));
   }, [selectedStopId]);
+
+  useEffect(() => {
+    if (recenterSignal > 0) {
+      webViewRef.current?.postMessage(JSON.stringify({ type: 'recenterTour' }));
+    }
+  }, [recenterSignal]);
 
   return (
     <WebView

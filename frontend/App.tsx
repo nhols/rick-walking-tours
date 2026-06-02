@@ -4,12 +4,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Linking,
+  LayoutAnimation,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 
@@ -33,6 +35,7 @@ export default function App() {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [positionMillis, setPositionMillis] = useState(0);
   const [durationMillis, setDurationMillis] = useState(0);
+  const [recenterSignal, setRecenterSignal] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
 
   const selectedStop = useMemo(
@@ -44,11 +47,21 @@ export default function App() {
     setIsPlaying(false);
     setPositionMillis(0);
     setDurationMillis(0);
+    if (detailsExpanded) {
+      animateDetailsLayout();
+    }
     setDetailsExpanded(false);
     void unloadSound();
   }, [selectedStopId]);
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      const layoutManager = UIManager as typeof UIManager & {
+        setLayoutAnimationEnabledExperimental?: (enabled: boolean) => void;
+      };
+      layoutManager.setLayoutAnimationEnabledExperimental?.(true);
+    }
+
     return () => {
       void unloadSound();
     };
@@ -143,15 +156,21 @@ export default function App() {
         tour={tour}
         selectedStopId={selectedStop.id}
         onSelectStop={selectStop}
+        recenterSignal={recenterSignal}
       />
-      <View style={styles.mapHeader}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Recenter map on tour"
+        style={styles.mapHeader}
+        onPress={() => setRecenterSignal((signal) => signal + 1)}
+      >
         <Text style={styles.kicker} numberOfLines={1}>
           {tour.location}
         </Text>
         <Text style={styles.tourTitle} numberOfLines={2}>
           {tour.title}
         </Text>
-      </View>
+      </Pressable>
 
       <View style={styles.bottomChrome}>
         <View style={styles.detailsPanel}>
@@ -167,7 +186,10 @@ export default function App() {
 
             <Pressable
               style={styles.detailsToggle}
-              onPress={() => setDetailsExpanded((expanded) => !expanded)}
+              onPress={() => {
+                animateDetailsLayout();
+                setDetailsExpanded((expanded) => !expanded);
+              }}
             >
               <View style={styles.titleWrap}>
                 <Text style={styles.detailsTitle} numberOfLines={1}>
@@ -177,7 +199,13 @@ export default function App() {
                   {detailsExpanded ? selectedStop.formattedAddress : selectedStop.description}
                 </Text>
               </View>
-              <Text style={styles.expandIcon}>{detailsExpanded ? '⌄' : '⌃'}</Text>
+              <View style={styles.expandIconWrap}>
+                <MaterialIcons
+                  color="#c94738"
+                  name={detailsExpanded ? 'expand-more' : 'expand-less'}
+                  size={28}
+                />
+              </View>
             </Pressable>
           </View>
 
@@ -262,6 +290,23 @@ function playbackProgress(position: number, duration: number) {
   return Math.min(1, Math.max(0, position / duration));
 }
 
+function animateDetailsLayout() {
+  LayoutAnimation.configureNext({
+    duration: 260,
+    create: {
+      type: LayoutAnimation.Types.easeInEaseOut,
+      property: LayoutAnimation.Properties.opacity,
+    },
+    update: {
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+    delete: {
+      type: LayoutAnimation.Types.easeInEaseOut,
+      property: LayoutAnimation.Properties.opacity,
+    },
+  });
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -275,7 +320,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderRadius: 16,
-    backgroundColor: 'rgba(17, 24, 22, 0.9)',
+    backgroundColor: 'rgba(17, 24, 22, 0.68)',
     shadowColor: '#000',
     shadowOpacity: 0.22,
     shadowRadius: 16,
@@ -283,13 +328,13 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   kicker: {
-    color: '#c7d7cf',
+    color: 'rgba(199, 215, 207, 0.82)',
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   tourTitle: {
-    color: '#fffdf7',
+    color: 'rgba(255, 253, 247, 0.88)',
     fontSize: 18,
     fontWeight: '900',
     lineHeight: 22,
@@ -358,12 +403,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  expandIcon: {
+  expandIconWrap: {
     width: 34,
-    color: '#c94738',
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'right',
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: '#f5e8df',
   },
   expandedDetails: {
     maxHeight: 292,

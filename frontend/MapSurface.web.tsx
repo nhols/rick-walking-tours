@@ -6,9 +6,15 @@ type Props = {
   tour: Parameters<typeof mapHtml>[0];
   selectedStopId: string;
   onSelectStop: (stopId: string) => void;
+  recenterSignal: number;
 };
 
-export default function MapSurface({ tour, selectedStopId, onSelectStop }: Props) {
+export default function MapSurface({
+  tour,
+  selectedStopId,
+  onSelectStop,
+  recenterSignal,
+}: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const html = useMemo(() => mapHtml(tour), [tour]);
 
@@ -35,6 +41,12 @@ export default function MapSurface({ tour, selectedStopId, onSelectStop }: Props
       '*',
     );
   }, [selectedStopId]);
+
+  useEffect(() => {
+    if (recenterSignal > 0) {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'recenterTour' }, '*');
+    }
+  }, [recenterSignal]);
 
   return (
     <iframe
