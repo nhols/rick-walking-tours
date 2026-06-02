@@ -1,3 +1,4 @@
+import hashlib
 import re
 from datetime import datetime
 
@@ -124,7 +125,7 @@ def tour_output_to_artifact(
 
     return TourArtifact(
         metadata=TourArtifactMetadata(
-            id=slugify(prompt),
+            id=slugify(location),
             title=output.chapters.tour_title,
             prompt=prompt,
             location=location,
@@ -206,9 +207,16 @@ def audio_filename(index: int, title: str, audio_format: str) -> str:
     return f"{index:02d}-{slugify(title)}.{audio_format}"
 
 
-def slugify(value: str) -> str:
+def slugify(value: str, max_length: int = 80) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
-    return slug or "tour"
+    slug = slug or "tour"
+    if len(slug) <= max_length:
+        return slug
+
+    digest = hashlib.sha1(slug.encode("utf-8")).hexdigest()[:8]
+    suffix = f"-{digest}"
+    prefix = slug[: max_length - len(suffix)].rstrip("-")
+    return f"{prefix}{suffix}"
 
 
 def strip_audio_tags(narration: str) -> str:
