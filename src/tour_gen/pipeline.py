@@ -67,10 +67,14 @@ async def generate_tour(
             audio_format,
         )
 
-        checkpoint_research, checkpoint_coordinates = await research_checkpoints(user_request, location=location, geocoder=geocoder)
+        checkpoint_research, checkpoint_coordinates = await research_checkpoints(
+            user_request, location=location, geocoder=geocoder
+        )
         route_plan = await plan_route(checkpoint_research)
         chapters = await write_chapters(route_plan, voice_style=voice_style)
-        narration = await narrate_tour(chapters, tts_provider=tts_provider, voice=voice, model=tts_model, audio_format=audio_format)
+        narration = await narrate_tour(
+            chapters, tts_provider=tts_provider, voice=voice, model=tts_model, audio_format=audio_format
+        )
 
         return TourGenerationOutput(
             checkpoint_research=checkpoint_research,
@@ -170,9 +174,7 @@ def _checkpoint_coordinates(
 ) -> list[CheckpointCoordinates]:
     coordinates: list[CheckpointCoordinates] = []
     for proposal in checkpoint_research.proposals:
-        place = checkpoint_artifacts.geocoded_places.get(
-            proposal.distance_tool_place_name
-        )
+        place = checkpoint_artifacts.geocoded_places.get(proposal.distance_tool_place_name)
         if place is None:
             continue
         coordinates.append(
