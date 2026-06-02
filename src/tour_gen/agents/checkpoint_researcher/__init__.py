@@ -54,6 +54,11 @@ async def estimate_place_distances(
 ) -> list[DistanceMatrixEntry]:
     """Return one-way crow-flies distances between place names in kilometers.
 
+    Use explicit, locally grounded place names. Include enough location context
+    in each name to make it unambiguous, such as a park, neighborhood, borough,
+    city, or country. For example, use "Skylark Cafe, Wandsworth Common,
+    London" instead of "Skylark Cafe".
+
     The result only includes one half of the matrix: A>B, never B>A, and never
     the diagonal.
     """
@@ -66,9 +71,7 @@ async def estimate_place_distances(
         ctx.deps.artifacts.geocoded_places[place.place_name] = place
 
     implausible_distances = [
-        entry
-        for entry in distance_matrix_result.distances
-        if entry.distance_km > ctx.deps.max_checkpoint_distance_km
+        entry for entry in distance_matrix_result.distances if entry.distance_km > ctx.deps.max_checkpoint_distance_km
     ]
     if implausible_distances:
         raise ModelRetry(
@@ -113,13 +116,19 @@ near. For each proposal, set distance_tool_place_name to the exact place name
 you passed to estimate_place_distances for that checkpoint.
 
 Use the estimate_place_distances tool before returning final proposals. Give it
-the shortlist of place names you are considering. Use the returned crow-flies
-distances to avoid proposing checkpoints that are implausibly far apart for a
-walking tour, and to adapt to any user requests about walking distance, tour
-duration, compactness, or pace. Every pair of returned proposals must have been
-checked together in the distance tool. If the distance matrix shows very large
+the shortlist of explicit, locally grounded place names you are considering.
+Each place name passed to the distance tool must include enough grounding
+location context to geocode correctly, such as the park, neighborhood, borough,
+city, or country. Do not pass bare or generic names like "the pond", "the
+station", "the cafe", or "the war memorial"; use names like "Wandsworth Common
+Station, Wandsworth Common, London". Use the returned crow-flies distances to
+avoid proposing checkpoints that are implausibly far apart for a walking tour,
+and to adapt to any user requests about walking distance, tour duration,
+compactness, or pace. Every pair of returned proposals must have been checked
+together in the distance tool. If the distance matrix shows very large
 distances, treat that as a failed geocode or an unsuitable checkpoint set; try
-more precise place names before returning final proposals.
+more precise place names with stronger grounding location context before
+returning final proposals.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.
