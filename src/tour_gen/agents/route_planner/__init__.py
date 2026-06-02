@@ -2,12 +2,13 @@ from collections import Counter
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext
 
 from tour_gen.agents.checkpoint_researcher import CheckpointProposal
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
+AGENT_RETRIES: AgentRetries = {"output": 4}
 
 
 class OrderedCheckpoint(BaseModel):
@@ -40,6 +41,7 @@ route_planner_agent = Agent[
     name="route_planner_agent",
     deps_type=RoutePlannerDeps,
     output_type=RoutePlanOutput,
+    retries=AGENT_RETRIES,
     instructions="""
 You order selected walking-tour checkpoints.
 

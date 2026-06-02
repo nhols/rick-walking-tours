@@ -2,13 +2,14 @@ from collections import Counter
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext
 from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.agents.route_planner import RoutePlanOutput
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
+AGENT_RETRIES: AgentRetries = {"output": 4}
 TOUR_TITLE_MAX_WORDS = 8
 
 
@@ -88,6 +89,7 @@ chapter_writer_agent = Agent[
     name="chapter_writer_agent",
     deps_type=ChapterWriterDeps,
     output_type=ChapterWriterOutput,
+    retries=AGENT_RETRIES,
     capabilities=[WEB_SEARCH],
     instructions=CHAPTER_WRITER_INSTRUCTIONS,
 )

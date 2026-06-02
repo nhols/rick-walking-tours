@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext, Tool
 from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.geo.distance_matrix import (
@@ -14,6 +14,8 @@ from tour_gen.geo.geoencode import Geocoder
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
+AGENT_RETRIES: AgentRetries = {"tools": 4, "output": 4}
+DISTANCE_TOOL_MAX_RETRIES = 6
 
 
 class CheckpointProposal(BaseModel):
@@ -96,7 +98,8 @@ checkpoint_research_agent = Agent[
     name="checkpoint_research_agent",
     deps_type=CheckpointResearchDeps,
     output_type=CheckpointResearchOutput,
-    tools=[estimate_place_distances],
+    retries=AGENT_RETRIES,
+    tools=[Tool(estimate_place_distances, max_retries=DISTANCE_TOOL_MAX_RETRIES)],
     capabilities=[WEB_SEARCH],
     instructions="""
 You propose walking-tour checkpoint candidates from a single user request.
