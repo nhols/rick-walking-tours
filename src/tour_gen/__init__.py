@@ -1,10 +1,10 @@
 import logging
 
 from dotenv import load_dotenv
+import logfire
 
 load_dotenv()
 
-import logfire
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,3 +18,4 @@ logfire.configure(
     console=False,
 )
 logfire.instrument_pydantic_ai()
+logfire.instrument_google_genai()
