@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Tour Player",
+    "slug": "tour-player",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Show your position on the tour map.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.nhols.tourplayer"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "56434e56-8b27-4dc6-b275-074c2ba6a78c"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
