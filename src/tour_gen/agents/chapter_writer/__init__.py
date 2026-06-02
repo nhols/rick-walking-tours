@@ -66,6 +66,12 @@ something else.
 You may use square-bracket performance tags sparingly inside narration where
 they improve the spoken result, for example [softly], [brief pause], or
 [with a smile]. Do not overuse them.
+
+The narration field must contain only the exact words and performance tags to
+be spoken by TTS. Do not include citations, reference markers, footnotes, URLs,
+source IDs, bibliographies, markdown links, or anything else that is not
+narration. For example, never write reference markers like [1.28],
+[1.7, 1.26], or [source] in narration.
 """.strip()
 
 
@@ -85,20 +91,13 @@ chapter_writer_agent = Agent[
 @chapter_writer_agent.instructions
 def add_route_plan_instruction(ctx: RunContext[ChapterWriterDeps]) -> str:
     checkpoint_lines = [
-        f"- {checkpoint.title}: {checkpoint.reasoning}"
-        for checkpoint in ctx.deps.route_plan.ordered_checkpoints
+        f"- {checkpoint.title}: {checkpoint.reasoning}" for checkpoint in ctx.deps.route_plan.ordered_checkpoints
     ]
-    instructions = (
-        f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\n"
-        "Ordered checkpoints:\n"
-        + "\n".join(checkpoint_lines)
+    instructions = f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\nOrdered checkpoints:\n" + "\n".join(
+        checkpoint_lines
     )
     if ctx.deps.voice_style:
-        instructions += (
-            "\n\n"
-            "User voice style guide:\n"
-            f"{ctx.deps.voice_style}"
-        )
+        instructions += f"\n\nUser voice style guide:\n{ctx.deps.voice_style}"
     return instructions
 
 
@@ -107,10 +106,7 @@ def validate_chapters(
     ctx: RunContext[ChapterWriterDeps],
     output: ChapterWriterOutput,
 ) -> ChapterWriterOutput:
-    expected_titles = [
-        checkpoint.title
-        for checkpoint in ctx.deps.route_plan.ordered_checkpoints
-    ]
+    expected_titles = [checkpoint.title for checkpoint in ctx.deps.route_plan.ordered_checkpoints]
     returned_titles = [chapter.title for chapter in output.chapters]
 
     if Counter(returned_titles) != Counter(expected_titles):
