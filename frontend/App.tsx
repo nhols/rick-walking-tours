@@ -15,28 +15,28 @@ import {
   View,
 } from 'react-native';
 
-import tourData from './assets/tour/frontend_tour.json';
+import { availableTours } from './availableTours';
 import MapSurface from './MapSurface';
 
-type Tour = typeof tourData;
-
-const audioAssets: Record<string, number> = {
-  '01-the-balmoral-hotel.wav': require('./assets/tour/01-the-balmoral-hotel.wav'),
-  '02-city-chambers.wav': require('./assets/tour/02-city-chambers.wav'),
-  '03-victoria-street.wav': require('./assets/tour/03-victoria-street.wav'),
-  '04-greyfriars-kirkyard.wav': require('./assets/tour/04-greyfriars-kirkyard.wav'),
-};
-
 export default function App() {
-  const tour = tourData as Tour;
-  const [selectedStopId, setSelectedStopId] = useState(tour.stops[0].id);
+  const [selectedTourId, setSelectedTourId] = useState(availableTours[0].tour.id);
+  const [selectedStopId, setSelectedStopId] = useState(availableTours[0].tour.stops[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [positionMillis, setPositionMillis] = useState(0);
   const [durationMillis, setDurationMillis] = useState(0);
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [toursOpen, setToursOpen] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
+
+  const selectedTourEntry = useMemo(
+    () => availableTours.find((entry) => entry.tour.id === selectedTourId) ?? availableTours[0],
+    [selectedTourId],
+  );
+  const tour = selectedTourEntry.tour;
+  const audioAssets = selectedTourEntry.audioAssets;
 
   const selectedStop = useMemo(
     () => tour.stops.find((stop) => stop.id === selectedStopId) ?? tour.stops[0],
@@ -131,6 +131,19 @@ export default function App() {
     setSelectedStopId(stopId);
   }, []);
 
+  const selectTour = useCallback((tourId: string) => {
+    const nextTour = availableTours.find((entry) => entry.tour.id === tourId)?.tour;
+    if (!nextTour) {
+      return;
+    }
+
+    setSelectedTourId(tourId);
+    setSelectedStopId(nextTour.stops[0].id);
+    setMenuOpen(false);
+    setToursOpen(false);
+    setRecenterSignal((signal) => signal + 1);
+  }, []);
+
   const openDirections = useCallback(async () => {
     const label = encodeURIComponent(selectedStop.title);
     const { lat, lon } = selectedStop.position;
@@ -158,6 +171,102 @@ export default function App() {
         onSelectStop={selectStop}
         recenterSignal={recenterSignal}
       />
+      <View style={styles.menuChrome}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          style={styles.menuButton}
+          onPress={() => setMenuOpen(true)}
+        >
+          <MaterialIcons color="#111816" name="menu" size={25} />
+        </Pressable>
+      </View>
+
+      {menuOpen ? (
+        <View style={styles.menuOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu backdrop"
+            style={styles.menuScrim}
+            onPress={() => setMenuOpen(false)}
+          />
+          <View style={styles.menuDrawer}>
+            <View style={styles.menuDrawerHeader}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+                style={styles.drawerCloseButton}
+                onPress={() => setMenuOpen(false)}
+              >
+                <MaterialIcons color="#111816" name="close" size={25} />
+              </Pressable>
+              <Text style={styles.menuTitle}>Menu</Text>
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Show tours"
+              style={styles.menuItem}
+              onPress={() => setToursOpen((open) => !open)}
+            >
+              <View style={styles.menuItemLabel}>
+                <MaterialIcons color="#c94738" name="map" size={19} />
+                <Text style={styles.menuItemText}>Tours</Text>
+              </View>
+              <MaterialIcons
+                color="#6a6f69"
+                name={toursOpen ? 'expand-less' : 'expand-more'}
+                size={24}
+              />
+            </Pressable>
+
+            {toursOpen ? (
+              <View style={styles.tourMenuList}>
+                {availableTours.map((entry) => {
+                  const isSelected = entry.tour.id === tour.id;
+                  return (
+                    <Pressable
+                      key={entry.tour.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Load ${entry.tour.title}`}
+                      style={[
+                        styles.tourMenuItem,
+                        isSelected ? styles.tourMenuItemSelected : null,
+                      ]}
+                      onPress={() => selectTour(entry.tour.id)}
+                    >
+                      <View style={styles.tourMenuTextWrap}>
+                        <Text
+                          style={[
+                            styles.tourMenuTitle,
+                            isSelected ? styles.tourMenuTitleSelected : null,
+                          ]}
+                          numberOfLines={3}
+                        >
+                          {entry.tour.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tourMenuLocation,
+                            isSelected ? styles.tourMenuLocationSelected : null,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {entry.tour.location} - {entry.tour.stops.length} stops
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <MaterialIcons color="#fffdf7" name="check" size={20} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Recenter map on tour"
@@ -314,17 +423,18 @@ const styles = StyleSheet.create({
   },
   mapHeader: {
     position: 'absolute',
-    top: 58,
-    left: 18,
-    right: 18,
+    top: 56,
+    left: 76,
+    right: 16,
+    zIndex: 8,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(17, 24, 22, 0.68)',
+    backgroundColor: 'rgba(17, 24, 22, 0.76)',
     shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
     elevation: 12,
   },
   kicker: {
@@ -335,10 +445,131 @@ const styles = StyleSheet.create({
   },
   tourTitle: {
     color: 'rgba(255, 253, 247, 0.88)',
+    fontSize: 17,
+    fontWeight: '900',
+    lineHeight: 21,
+    marginTop: 3,
+  },
+  menuChrome: {
+    position: 'absolute',
+    top: 56,
+    left: 18,
+    zIndex: 18,
+    alignItems: 'flex-start',
+  },
+  menuButton: {
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 253, 247, 0.9)',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 12,
+  },
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    elevation: 40,
+  },
+  menuScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(17, 24, 22, 0.26)',
+  },
+  menuDrawer: {
+    width: 340,
+    maxWidth: '88%',
+    height: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    backgroundColor: '#fffdf7',
+    shadowColor: '#000',
+    shadowOpacity: 0.26,
+    shadowRadius: 22,
+    shadowOffset: { width: 8, height: 0 },
+    elevation: 42,
+  },
+  menuDrawerHeader: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+  drawerCloseButton: {
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 23,
+    backgroundColor: '#f4f0e8',
+  },
+  menuTitle: {
+    color: '#111816',
     fontSize: 18,
     fontWeight: '900',
-    lineHeight: 22,
-    marginTop: 2,
+  },
+  menuItem: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#f7f4ee',
+  },
+  menuItemLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  menuItemText: {
+    color: '#111816',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  tourMenuList: {
+    gap: 8,
+    paddingTop: 10,
+  },
+  tourMenuItem: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: '#f4f0e8',
+  },
+  tourMenuItemSelected: {
+    backgroundColor: '#111816',
+  },
+  tourMenuTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tourMenuTitle: {
+    color: '#111816',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  tourMenuTitleSelected: {
+    color: '#fffdf7',
+  },
+  tourMenuLocation: {
+    color: '#6a6f69',
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  tourMenuLocationSelected: {
+    color: '#c7d7cf',
   },
   bottomChrome: {
     marginHorizontal: 10,
