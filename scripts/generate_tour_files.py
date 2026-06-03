@@ -21,8 +21,17 @@ from tour_gen.tts.narration import NarratedChapter
 from tour_gen.tts.gemini import GEMINI_TTS_VOICE, GeminiTTSProvider
 
 
-DEFAULT_PROMPT = "Harry Potter themed walking tour in Edinburgh"
-DEFAULT_LOCATION = "Edinburgh"
+DEFAULT_PROMPT = (
+    "Create a walking tour of Wandsworth Common in southwest London, focused "
+    "on how the common has changed through the years and evolved alongside "
+    "London into its present-day form. Include 8-10 real, visitable locations "
+    "around the common and nearby streets, using each stop to reveal a layer "
+    "of the area's history: common land, Victorian preservation, railway and "
+    "suburban growth, wartime use, civic life, and modern conservation. Also "
+    "give strong attention to the nature of the common today, including its "
+    "ponds, grassland, trees, habitats, seasonal character, and wildlife."
+)
+DEFAULT_LOCATION = "Wandsworth Common, southwest London"
 DEFAULT_VOICE_STYLE = None
 DATA_DIR = PROJECT_ROOT / "data"
 TOURS_DIR = DATA_DIR / "tours"

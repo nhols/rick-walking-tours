@@ -12,6 +12,11 @@ dependencies = [
     "python-dotenv>=1.2.2",
 ]
 
+[dependency-groups]
+ui = [
+    "gradio>=6.0.2",
+]
+
 [build-system]
 requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"

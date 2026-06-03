@@ -17,10 +17,14 @@ from tour_gen.pipeline import plan_route, research_checkpoints, write_chapters
 
 
 DEFAULT_PROMPT = (
-    "Create a walking tour of Wandsworth Common in southwest London, focusing "
-    "on its history and modern-day life. Include 8-10 real, visitable locations "
-    "around the common and nearby streets, balancing historic context, local "
-    "character, nature, transport, community spaces, and present-day amenities."
+    "Create a walking tour of Wandsworth Common in southwest London, focused "
+    "on how the common has changed through the years and evolved alongside "
+    "London into its present-day form. Include 8-10 real, visitable locations "
+    "around the common and nearby streets, using each stop to reveal a layer "
+    "of the area's history: common land, Victorian preservation, railway and "
+    "suburban growth, wartime use, civic life, and modern conservation. Also "
+    "give strong attention to the nature of the common today, including its "
+    "ponds, grassland, trees, habitats, seasonal character, and wildlife."
 )
 DEFAULT_LOCATION = "Wandsworth Common, southwest London"
 
