@@ -124,6 +124,9 @@ distance, tour duration, compactness, or pace. Every pair of returned proposals
 must have been checked together in the distance tool. If the distance matrix
 shows very large distances, treat that as a failed geocode or an unsuitable
 checkpoint set; try more precise place names before returning final proposals.
+Do not return distinct checkpoint proposals if the distance matrix shows 0 km
+between them. Treat zero-distance pairs as failed geocodes and call
+estimate_place_distances again with different, more precise checkpoint names.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.
@@ -170,7 +173,47 @@ def validate_checkpoint_distances_were_checked(
             "match those searched place names."
         )
 
+    duplicate_coordinate_groups = _duplicate_coordinate_groups(
+        returned_place_names,
+        ctx.deps.artifacts.geocoded_places,
+    )
+    if duplicate_coordinate_groups:
+        raise ModelRetry(
+            "Invalid checkpoint proposals. "
+            "Multiple returned checkpoints geocoded to the same coordinates. "
+            f"Duplicate coordinate groups: {duplicate_coordinate_groups}. "
+            f"Geocoded places: {_format_geocoded_places(ctx.deps.artifacts.geocoded_places)}. "
+            "These distinct checkpoints would appear as zero-distance pairs "
+            "in the distance matrix. This usually means one or more checkpoint "
+            "names geocoded to a generic fallback location rather than the "
+            "intended physical stop. Call estimate_place_distances again with "
+            "different, more precise checkpoint names."
+        )
+
     return output
+
+
+def _duplicate_coordinate_groups(
+    place_names: list[str],
+    geocoded_places: dict[str, GeocodedPlace],
+) -> list[dict[str, object]]:
+    places_by_coordinate: dict[tuple[float, float], list[str]] = {}
+    for place_name in place_names:
+        place = geocoded_places.get(place_name)
+        if place is None:
+            continue
+        coordinate = (place.lat, place.lon)
+        places_by_coordinate.setdefault(coordinate, []).append(place_name)
+
+    return [
+        {
+            "lat": coordinate[0],
+            "lon": coordinate[1],
+            "place_names": sorted(coordinate_place_names),
+        }
+        for coordinate, coordinate_place_names in sorted(places_by_coordinate.items())
+        if len(coordinate_place_names) > 1
+    ]
 
 
 def _format_pairs(pairs: set[frozenset[str]]) -> list[tuple[str, str]]:
