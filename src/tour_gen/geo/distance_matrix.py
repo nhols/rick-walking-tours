@@ -3,7 +3,7 @@ import math
 
 from pydantic import BaseModel, Field
 
-from tour_gen.geo.geoencode import GeocodeResult, Geocoder
+from tour_gen.geo.geoencode import GeocodeResult, Geocoder, GeoPosition
 
 
 EARTH_RADIUS_KM = 6_371.0088
@@ -31,13 +31,13 @@ class CrowFliesDistanceMatrixResult(BaseModel):
 async def build_crow_flies_distance_matrix(
     *,
     place_names: list[str],
-    location: str,
     geocoder: Geocoder,
+    bias_position: GeoPosition | None = None,
 ) -> list[DistanceMatrixEntry]:
     result = await build_crow_flies_distance_matrix_result(
         place_names=place_names,
-        location=location,
         geocoder=geocoder,
+        bias_position=bias_position,
     )
     return result.distances
 
@@ -45,12 +45,12 @@ async def build_crow_flies_distance_matrix(
 async def build_crow_flies_distance_matrix_result(
     *,
     place_names: list[str],
-    location: str,
     geocoder: Geocoder,
+    bias_position: GeoPosition | None = None,
 ) -> CrowFliesDistanceMatrixResult:
     geocoded_places = await asyncio.gather(
         *[
-            geocoder.geocode(f"{place_name}, {location}")
+            geocoder.geocode(place_name, bias_position=bias_position)
             for place_name in place_names
         ]
     )

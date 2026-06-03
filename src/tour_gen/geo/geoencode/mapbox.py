@@ -1,33 +1,47 @@
 import os
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, TypeAlias
 
 import httpx
-from tour_gen.geo.geoencode import GeocodeResult
+from tour_gen.geo.geoencode import GeocodeResult, GeoPosition
+
+
+JsonObject: TypeAlias = Mapping[str, Any]
 
 
 class MapboxGeocoder:
     endpoint = "https://api.mapbox.com/search/geocode/v6/forward"
 
     def __init__(self, access_token: str | None = None) -> None:
-        self.access_token = access_token or os.environ.get("MAPBOX_ACCESS_TOKEN")
-        if not self.access_token:
+        resolved_access_token = access_token or os.environ.get("MAPBOX_ACCESS_TOKEN")
+        if not resolved_access_token:
             raise RuntimeError("MAPBOX_ACCESS_TOKEN must be set in .env")
+        self.access_token: str = resolved_access_token
 
-    async def geocode(self, query: str) -> GeocodeResult:
+    async def geocode(
+        self,
+        query: str,
+        *,
+        bias_position: GeoPosition | None = None,
+    ) -> GeocodeResult:
+        params: dict[str, str | int] = {
+            "q": query,
+            "access_token": self.access_token,
+            "limit": 1,
+        }
+        if bias_position is not None:
+            params["proximity"] = f"{bias_position.lon},{bias_position.lat}"
+
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(
                 self.endpoint,
-                params={
-                    "q": query,
-                    "access_token": self.access_token,
-                    "limit": 1,
-                },
+                params=params,
             )
             response.raise_for_status()
             return _parse_mapbox_response(query, response.json())
 
 
-def _parse_mapbox_response(query: str, data: dict[str, Any]) -> GeocodeResult:
+def _parse_mapbox_response(query: str, data: JsonObject) -> GeocodeResult:
     features = data.get("features")
     if not features:
         return GeocodeResult(query=query)

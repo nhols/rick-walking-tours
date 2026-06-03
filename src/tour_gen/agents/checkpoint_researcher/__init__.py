@@ -10,7 +10,7 @@ from tour_gen.geo.distance_matrix import (
     GeocodedPlace,
     build_crow_flies_distance_matrix_result,
 )
-from tour_gen.geo.geoencode import Geocoder
+from tour_gen.geo.geoencode import GeocodeResult, Geocoder, GeoPosition
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
@@ -40,6 +40,7 @@ class CheckpointResearchDeps:
     geocoder: Geocoder
     max_checkpoint_distance_km: float = 5.0
     artifacts: CheckpointResearchArtifacts = field(default_factory=CheckpointResearchArtifacts)
+    location_geocode: GeocodeResult | None = None
 
 
 WEB_SEARCH: WebSearch[CheckpointResearchDeps] = WebSearch(
@@ -54,18 +55,18 @@ async def estimate_place_distances(
 ) -> list[DistanceMatrixEntry]:
     """Return one-way crow-flies distances between place names in kilometers.
 
-    Use explicit, locally grounded place names. Include enough location context
-    in each name to make it unambiguous, such as a park, neighborhood, borough,
-    city, or country. For example, use "Skylark Cafe, Wandsworth Common,
-    London" instead of "Skylark Cafe".
+    Pass the exact checkpoint names you are considering.
 
     The result only includes one half of the matrix: A>B, never B>A, and never
     the diagonal.
     """
+    if ctx.deps.location_geocode is None:
+        ctx.deps.location_geocode = await ctx.deps.geocoder.geocode(ctx.deps.location)
+
     distance_matrix_result = await build_crow_flies_distance_matrix_result(
         place_names=place_names,
-        location=ctx.deps.location,
         geocoder=ctx.deps.geocoder,
+        bias_position=_bias_position(ctx.deps.location_geocode),
     )
     for place in distance_matrix_result.geocoded_places:
         ctx.deps.artifacts.geocoded_places[place.place_name] = place
@@ -83,8 +84,8 @@ async def estimate_place_distances(
             f"Geocoded places: {_format_geocoded_places(ctx.deps.artifacts.geocoded_places)}. "
             "This usually means one or more place names geocoded to the wrong "
             "city/country, or the shortlist is not compact enough. Call "
-            "estimate_place_distances again with more precise place names in "
-            "the requested location, or choose a more compact shortlist."
+            "estimate_place_distances again with more precise place names, or "
+            "choose a more compact shortlist."
         )
 
     for entry in distance_matrix_result.distances:
@@ -116,19 +117,13 @@ near. For each proposal, set distance_tool_place_name to the exact place name
 you passed to estimate_place_distances for that checkpoint.
 
 Use the estimate_place_distances tool before returning final proposals. Give it
-the shortlist of explicit, locally grounded place names you are considering.
-Each place name passed to the distance tool must include enough grounding
-location context to geocode correctly, such as the park, neighborhood, borough,
-city, or country. Do not pass bare or generic names like "the pond", "the
-station", "the cafe", or "the war memorial"; use names like "Wandsworth Common
-Station, Wandsworth Common, London". Use the returned crow-flies distances to
-avoid proposing checkpoints that are implausibly far apart for a walking tour,
-and to adapt to any user requests about walking distance, tour duration,
-compactness, or pace. Every pair of returned proposals must have been checked
-together in the distance tool. If the distance matrix shows very large
-distances, treat that as a failed geocode or an unsuitable checkpoint set; try
-more precise place names with stronger grounding location context before
-returning final proposals.
+the shortlist of exact checkpoint names you are considering. Use the returned
+crow-flies distances to avoid proposing checkpoints that are implausibly far
+apart for a walking tour, and to adapt to any user requests about walking
+distance, tour duration, compactness, or pace. Every pair of returned proposals
+must have been checked together in the distance tool. If the distance matrix
+shows very large distances, treat that as a failed geocode or an unsuitable
+checkpoint set; try more precise place names before returning final proposals.
 
 Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
 not create quizzes.
@@ -217,3 +212,9 @@ def _format_geocoded_places(
         }
         for place in sorted(places.values(), key=lambda place: place.place_name)
     ]
+
+
+def _bias_position(result: GeocodeResult) -> GeoPosition | None:
+    if result.lat is None or result.lon is None:
+        return None
+    return GeoPosition(lat=result.lat, lon=result.lon)

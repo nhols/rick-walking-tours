@@ -10,11 +10,22 @@ class GeocodeResult(BaseModel):
     formatted_address: str | None = None
 
 
+class GeoPosition(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
 class Geocoder(Protocol):
-    async def geocode(self, query: str) -> GeocodeResult: ...
+    async def geocode(
+        self,
+        query: str,
+        *,
+        bias_position: GeoPosition | None = None,
+    ) -> GeocodeResult: ...
 
 
 __all__ = [
     "GeocodeResult",
+    "GeoPosition",
     "Geocoder",
 ]
