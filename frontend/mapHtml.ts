@@ -22,8 +22,11 @@ export function mapHtml(tour: Tour) {
 html,body,#map{height:100%;margin:0;background:#eef1ed}
 .marker{width:34px;height:34px;border-radius:17px;background:#111816;color:#fffdf7;border:3px solid #fffdf7;display:flex;align-items:center;justify-content:center;font:900 15px system-ui;box-shadow:0 4px 12px #0003}
 .marker.selected{width:42px;height:42px;border-radius:21px;background:#c94738}
+.locate-error{position:absolute;left:54px;bottom:32px;z-index:2;max-width:260px;padding:9px 11px;border-radius:6px;background:#111816;color:#fffdf7;font:700 12px system-ui;box-shadow:0 4px 14px #0004;opacity:0;pointer-events:none;transition:opacity .15s}
+.locate-error.visible{opacity:1}
+.user-location{width:18px;height:18px;border-radius:50%;background:#2586ff;border:3px solid #fff;box-shadow:0 0 0 7px #2586ff26,0 2px 10px #0005}
 .maplibregl-ctrl-logo,.maplibregl-ctrl-attrib{opacity:.72}
-</style></head><body><div id="map"></div>
+</style></head><body><div id="map"></div><div class="locate-error" role="status"></div>
 <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
 <script>
 const stops=${stops};
@@ -34,12 +37,31 @@ const map=new maplibregl.Map({
   attributionControl:true,
   style:'https://tiles.openfreemap.org/styles/bright'
 });
-map.addControl(new maplibregl.GeolocateControl({positionOptions:{enableHighAccuracy:true},trackUserLocation:true}),'bottom-left');
 const markers={};
 let selected=stops[0]?.id;
+let userLocationMarker;
 function selectStop(id){
   selected=id;
   Object.entries(markers).forEach(([markerId,el])=>el.classList.toggle('selected',markerId===selected));
+}
+function showLocateError(message='Location unavailable'){
+  const error=document.querySelector('.locate-error');
+  if(error){
+    error.textContent=message;
+    error.classList.add('visible');
+    window.setTimeout(()=>error.classList.remove('visible'),3500);
+  }
+}
+function updateUserLocation(lat,lon){
+  const coords=[lon,lat];
+  if(!userLocationMarker){
+    const el=document.createElement('div');
+    el.className='user-location';
+    userLocationMarker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(coords).addTo(map);
+  } else {
+    userLocationMarker.setLngLat(coords);
+  }
+  map.flyTo({center:coords,zoom:Math.max(map.getZoom(),16),duration:700});
 }
 function fitTour(duration=0){
   if(!stops.length) return;
@@ -60,8 +82,10 @@ selectStop(selected);
 function handleMessage(data){
   if(data?.type==='selectStop') selectStop(data.id);
   if(data?.type==='recenterTour') fitTour(700);
+  if(data?.type==='userLocation') updateUserLocation(data.lat,data.lon);
+  if(data?.type==='userLocationError') showLocateError(data.message);
 }
-window.addEventListener('message',event=>{
+function handleMessageEvent(event){
   handleMessage(event.data);
   if(typeof event.data==='string') {
     try {
@@ -69,7 +93,10 @@ window.addEventListener('message',event=>{
       handleMessage(data);
     } catch {}
   }
-});
+}
+window.receiveMapMessage=handleMessage;
+window.addEventListener('message',handleMessageEvent);
+document.addEventListener('message',handleMessageEvent);
 fitTour();
 </script></body></html>`;
 }
