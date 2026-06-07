@@ -29,6 +29,7 @@ class StageStatus(str, Enum):
     running = "running"
     awaiting_approval = "awaiting_approval"
     approved = "approved"
+    complete = "complete"
     failed = "failed"
 
 
@@ -144,4 +145,8 @@ class JobSummary(BaseModel):
 
 
 def user_message(content: str) -> ModelRequest:
+    return ModelRequest(parts=[UserPromptPart(content=content)])
+
+
+def app_message(content: str) -> ModelRequest:
     return ModelRequest(parts=[UserPromptPart(content=content)])
