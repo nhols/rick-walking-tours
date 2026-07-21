@@ -71,7 +71,12 @@ async def generate_tour(
             user_request, location=location, geocoder=geocoder
         )
         route_plan = await plan_route(checkpoint_research)
-        chapters = await write_chapters(route_plan, voice_style=voice_style)
+        chapters = await write_chapters(
+            route_plan,
+            checkpoint_research=checkpoint_research,
+            location=location,
+            voice_style=voice_style,
+        )
         narration = await narrate_tour(
             chapters, tts_provider=tts_provider, voice=voice, model=tts_model, audio_format=audio_format
         )
@@ -133,12 +138,19 @@ async def plan_route(
 async def write_chapters(
     route_plan: RoutePlanOutput,
     *,
+    checkpoint_research: CheckpointResearchOutput,
+    location: str,
     voice_style: str | None = None,
 ) -> ChapterWriterOutput:
     logger.info("Starting chapter writing")
     result = await chapter_writer_agent.run(
         "Write narration chapters for the ordered checkpoints.",
-        deps=ChapterWriterDeps(route_plan=route_plan, voice_style=voice_style),
+        deps=ChapterWriterDeps(
+            route_plan=route_plan,
+            location=location,
+            checkpoints=checkpoint_research.proposals,
+            voice_style=voice_style,
+        ),
     )
     chapters = result.output
     logger.info("Chapter writing complete chapter_count=%s", len(chapters.chapters))

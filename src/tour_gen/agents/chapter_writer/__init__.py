@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext
 from pydantic_ai.capabilities.web_search import WebSearch
 
+from tour_gen.agents.checkpoint_researcher import CheckpointProposal
 from tour_gen.agents.route_planner import RoutePlanOutput
 
 
@@ -35,6 +36,8 @@ class ChapterWriterOutput(BaseModel):
 @dataclass
 class ChapterWriterDeps:
     route_plan: RoutePlanOutput
+    location: str
+    checkpoints: list[CheckpointProposal]
     voice_style: str | None = None
 
 
@@ -50,6 +53,11 @@ You write narration chapters for an ordered walking-tour route.
 Use web search to enrich each chapter with grounded details, little facts,
 useful recommendations, and interesting online research. Prefer specific
 details over generic description.
+
+Each checkpoint includes an exact physical place selected and geocoded during
+research. Write about that exact place. Never silently replace it with another
+venue, landmark, branch, or similarly themed attraction. If web results are
+ambiguous, keep the supplied place identity and avoid unsupported details.
 
 Return a concise tour_title for the full tour, with no more than 8 words.
 The tour_title should be polished and specific enough to display in the app.
@@ -97,11 +105,17 @@ chapter_writer_agent = Agent[
 
 @chapter_writer_agent.instructions
 def add_route_plan_instruction(ctx: RunContext[ChapterWriterDeps]) -> str:
+    checkpoints = {checkpoint.title: checkpoint for checkpoint in ctx.deps.checkpoints}
     checkpoint_lines = [
-        f"- {checkpoint.title}: {checkpoint.reasoning}" for checkpoint in ctx.deps.route_plan.ordered_checkpoints
+        f"- {ordered.title}: {checkpoints[ordered.title].brief_description}\n"
+        f"  Exact place: {checkpoints[ordered.title].distance_tool_place_name}\n"
+        f"  Route reasoning: {ordered.reasoning}"
+        for ordered in ctx.deps.route_plan.ordered_checkpoints
     ]
-    instructions = f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\nOrdered checkpoints:\n" + "\n".join(
-        checkpoint_lines
+    instructions = (
+        f"Tour location: {ctx.deps.location}\n"
+        f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\n"
+        "Ordered checkpoints:\n" + "\n".join(checkpoint_lines)
     )
     if ctx.deps.voice_style:
         instructions += f"\n\nUser voice style guide:\n{ctx.deps.voice_style}"
