@@ -85,6 +85,8 @@ async def generate_draft(
         route_plan = await plan_route(checkpoint_research)
         chapters = await write_chapters(
             route_plan,
+            checkpoint_research=checkpoint_research,
+            location=location,
             voice_style=voice_style.strip() or None,
         )
     except Exception as exc:

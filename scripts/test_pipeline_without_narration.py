@@ -66,7 +66,12 @@ async def main() -> None:
             print_stage("route_plan", route_plan.model_dump(mode="json"))
 
         with logfire.span("Write chapters"):
-            chapters = await write_chapters(route_plan, voice_style=args.voice_style)
+            chapters = await write_chapters(
+                route_plan,
+                checkpoint_research=checkpoint_research,
+                location=args.location,
+                voice_style=args.voice_style,
+            )
             print_stage("chapters", chapters.model_dump(mode="json"))
 
         print_stage(

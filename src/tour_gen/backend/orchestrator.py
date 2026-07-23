@@ -1,7 +1,10 @@
-import json
+from __future__ import annotations
+
+from dataclasses import dataclass
 
 from pydantic import BaseModel, JsonValue
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
+from pydantic_graph import BaseNode, End, GraphBuilder, GraphRunContext, StepContext
 from sqlmodel import Session
 
 from tour_gen.agents.chapter_writer import ChapterWriterDeps, ChapterWriterOutput, chapter_writer_agent
@@ -20,94 +23,182 @@ from tour_gen.geo.geoencode.mapbox import MapboxGeocoder
 APP_RESULT_PREFIX = "APP_STAGE_RESULT:"
 
 
+@dataclass
+class TourGraphState:
+    job: Job
+
+
 class StageResultEnvelope(BaseModel):
     stage: str
     output: JsonValue
 
 
-async def advance_job(session: Session, job: Job) -> Job:
-    while job.status == JobStatus.pending:
+@dataclass
+class CheckpointResearch(BaseNode[TourGraphState, None, Job]):
+    async def run(
+        self,
+        ctx: GraphRunContext[TourGraphState, None],
+    ) -> End[Job]:
+        job = ctx.state.job
         stage = current_stage(job)
-        match stage.name:
+
+        stage.status = StageStatus.running
+        artifacts = CheckpointResearchArtifacts()
+        history = _agent_history(stage.state)
+        result = await checkpoint_research_agent.run(
+            _checkpoint_prompt(job),
+            message_history=history or None,
+            deps=CheckpointResearchDeps(
+                location=job.input.location,
+                geocoder=MapboxGeocoder(),
+                artifacts=artifacts,
+            ),
+        )
+        stage.state = [
+            *result.all_messages(),
+            _result_message("checkpoint_research", result.output),
+        ]
+        stage.status = StageStatus.awaiting_approval
+        job.status = JobStatus.awaiting_input
+        return End(job)
+
+
+@dataclass
+class RoutePlanning(BaseNode[TourGraphState, None, Job]):
+    async def run(
+        self,
+        ctx: GraphRunContext[TourGraphState, None],
+    ) -> ChapterWriting:
+        job = ctx.state.job
+        stage = current_stage(job)
+        checkpoint_output = _stage_result(
+            _stage(job, "checkpoint_research"),
+            "checkpoint_research",
+            CheckpointResearchOutput,
+        )
+
+        stage.status = StageStatus.running
+        result = await route_planner_agent.run(
+            "Order the selected checkpoints.",
+            deps=RoutePlannerDeps(checkpoints=checkpoint_output.proposals),
+        )
+        stage.state = [
+            *result.all_messages(),
+            _result_message("route_planning", result.output),
+        ]
+        stage.status = StageStatus.complete
+        _move_to_next_stage(job)
+        return ChapterWriting()
+
+
+@dataclass
+class ChapterWriting(BaseNode[TourGraphState, None, Job]):
+    async def run(
+        self,
+        ctx: GraphRunContext[TourGraphState, None],
+    ) -> Narration:
+        job = ctx.state.job
+        stage = current_stage(job)
+        route_plan = _stage_result(
+            _stage(job, "route_planning"),
+            "route_planning",
+            RoutePlanOutput,
+        )
+        checkpoint_output = _stage_result(
+            _stage(job, "checkpoint_research"),
+            "checkpoint_research",
+            CheckpointResearchOutput,
+        )
+
+        stage.status = StageStatus.running
+        result = await chapter_writer_agent.run(
+            "Write narration chapters for the ordered checkpoints.",
+            deps=ChapterWriterDeps(
+                route_plan=route_plan,
+                location=job.input.location,
+                checkpoints=checkpoint_output.proposals,
+            ),
+        )
+        stage.state = [
+            *result.all_messages(),
+            _result_message("chapter_writing", result.output),
+        ]
+        stage.status = StageStatus.complete
+        _move_to_next_stage(job)
+        return Narration()
+
+
+@dataclass
+class Narration(BaseNode[TourGraphState, None, Job]):
+    async def run(
+        self,
+        ctx: GraphRunContext[TourGraphState, None],
+    ) -> End[Job]:
+        job = ctx.state.job
+        stage = current_stage(job)
+        stage.status = StageStatus.complete
+        job.status = JobStatus.complete
+        return End(job)
+
+
+@dataclass
+class StartRouter(BaseNode[TourGraphState, None, Job]):
+    async def run(
+        self,
+        ctx: GraphRunContext[TourGraphState, None],
+    ) -> CheckpointResearch | RoutePlanning | ChapterWriting | Narration | End[Job]:
+        job = ctx.state.job
+        if job.status != JobStatus.pending:
+            return End(job)
+
+        match job.current_stage:
             case "checkpoint_research":
-                await _run_checkpoint_research(job, stage)
-                job.status = JobStatus.awaiting_input
-                break
+                return CheckpointResearch()
             case "route_planning":
-                await _run_route_planning(job, stage)
-                _move_to_next_stage(job)
+                return RoutePlanning()
             case "chapter_writing":
-                await _run_chapter_writing(job, stage)
-                _move_to_next_stage(job)
+                return ChapterWriting()
             case "narration":
-                stage.status = StageStatus.complete
-                job.status = JobStatus.complete
-                break
+                return Narration()
             case unknown_stage:
                 raise ValueError(f"Unknown stage: {unknown_stage}")
 
+
+graph_builder = GraphBuilder(
+    name="tour_generation_graph",
+    state_type=TourGraphState,
+    output_type=Job,
+    auto_instrument=False,
+)
+
+
+@graph_builder.step
+async def start(
+    ctx: StepContext[TourGraphState, None, None],
+) -> StartRouter:
+    return StartRouter()
+
+
+graph_builder.add(
+    graph_builder.node(StartRouter),
+    graph_builder.node(CheckpointResearch),
+    graph_builder.node(RoutePlanning),
+    graph_builder.node(ChapterWriting),
+    graph_builder.node(Narration),
+    graph_builder.edge_from(graph_builder.start_node).to(start),
+)
+
+tour_generation_graph = graph_builder.build()
+
+
+async def advance_job(session: Session, job: Job) -> Job:
+    job = await tour_generation_graph.run(state=TourGraphState(job=job))
     session.add(job)
     session.commit()
     session.refresh(job)
     for stage in job.stages:
         session.refresh(stage)
     return job
-
-
-async def _run_checkpoint_research(job: Job, stage: Stage) -> None:
-    stage.status = StageStatus.running
-    artifacts = CheckpointResearchArtifacts()
-    history = _agent_history(stage.state)
-    result = await checkpoint_research_agent.run(
-        _checkpoint_prompt(job),
-        message_history=history or None,
-        deps=CheckpointResearchDeps(
-            location=job.input.location,
-            geocoder=MapboxGeocoder(),
-            artifacts=artifacts,
-        ),
-    )
-    stage.state = [
-        *result.all_messages(),
-        _result_message("checkpoint_research", result.output),
-    ]
-    stage.status = StageStatus.awaiting_approval
-
-
-async def _run_route_planning(job: Job, stage: Stage) -> None:
-    checkpoint_output = _stage_result(
-        _stage(job, "checkpoint_research"),
-        "checkpoint_research",
-        CheckpointResearchOutput,
-    )
-    stage.status = StageStatus.running
-    result = await route_planner_agent.run(
-        "Order the selected checkpoints.",
-        deps=RoutePlannerDeps(checkpoints=checkpoint_output.proposals),
-    )
-    stage.state = [
-        *result.all_messages(),
-        _result_message("route_planning", result.output),
-    ]
-    stage.status = StageStatus.complete
-
-
-async def _run_chapter_writing(job: Job, stage: Stage) -> None:
-    route_plan = _stage_result(
-        _stage(job, "route_planning"),
-        "route_planning",
-        RoutePlanOutput,
-    )
-    stage.status = StageStatus.running
-    result = await chapter_writer_agent.run(
-        "Write narration chapters for the ordered checkpoints.",
-        deps=ChapterWriterDeps(route_plan=route_plan),
-    )
-    stage.state = [
-        *result.all_messages(),
-        _result_message("chapter_writing", result.output),
-    ]
-    stage.status = StageStatus.complete
 
 
 def _checkpoint_prompt(job: Job) -> str:
@@ -136,11 +227,7 @@ def _stage(job: Job, name: str) -> Stage:
 
 
 def _agent_history(messages: list[ModelMessage]) -> list[ModelMessage]:
-    return [
-        message
-        for message in messages
-        if not _is_app_result_message(message)
-    ]
+    return [message for message in messages if not _is_app_result_message(message)]
 
 
 def _result_message(stage_name: str, output: BaseModel) -> ModelRequest:
@@ -161,9 +248,7 @@ def _stage_result[T: BaseModel](
         if not content.startswith(APP_RESULT_PREFIX):
             continue
 
-        envelope = StageResultEnvelope.model_validate_json(
-            content.removeprefix(APP_RESULT_PREFIX)
-        )
+        envelope = StageResultEnvelope.model_validate_json(content.removeprefix(APP_RESULT_PREFIX))
         if envelope.stage != stage_name:
             continue
 
