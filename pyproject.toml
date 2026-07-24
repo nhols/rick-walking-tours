@@ -11,16 +11,13 @@ dependencies = [
     "logfire[google-genai]>=4.34.0",
     "pydantic-ai>=1.104.0",
     "python-dotenv>=1.2.2",
-    "sqlmodel>=0.0.27",
+    "supabase>=2.31.0",
     "uvicorn>=0.38.0",
 ]
 
 [dependency-groups]
 dev = [
     "ty>=0.0.44",
-]
-ui = [
-    "gradio>=6.0.2",
 ]
 
 [build-system]

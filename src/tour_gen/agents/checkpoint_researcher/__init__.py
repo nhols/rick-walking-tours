@@ -103,6 +103,7 @@ checkpoint_research_agent = Agent[
     deps_type=CheckpointResearchDeps,
     output_type=CheckpointResearchOutput,
     retries=AGENT_RETRIES,
+    defer_model_check=True,
     tools=[Tool(estimate_place_distances, max_retries=DISTANCE_TOOL_MAX_RETRIES)],
     capabilities=[WEB_SEARCH],
     instructions="""

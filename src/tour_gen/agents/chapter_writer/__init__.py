@@ -98,6 +98,7 @@ chapter_writer_agent = Agent[
     deps_type=ChapterWriterDeps,
     output_type=ChapterWriterOutput,
     retries=AGENT_RETRIES,
+    defer_model_check=True,
     capabilities=[WEB_SEARCH],
     instructions=CHAPTER_WRITER_INSTRUCTIONS,
 )

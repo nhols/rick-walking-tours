@@ -1,7 +1,8 @@
-import logging
+from typing import Any
 
-import logfire
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_core import to_jsonable_python
 
 from tour_gen.agents.chapter_writer import (
     ChapterWriterDeps,
@@ -24,127 +25,91 @@ from tour_gen.tts.narration import NarrationOutput, narrate_chapters
 from tour_gen.tts.provider import TTSProvider
 
 
-logger = logging.getLogger(__name__)
-
-
 class CheckpointCoordinates(BaseModel):
-    title: str
-    distance_tool_place_name: str
-    lat: float
-    lon: float
+    place_name: str = Field(min_length=1)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
     formatted_address: str | None = None
 
 
-class TourGenerationOutput(BaseModel):
-    checkpoint_research: CheckpointResearchOutput
-    checkpoint_coordinates: list[CheckpointCoordinates]
-    route_plan: RoutePlanOutput
-    chapters: ChapterWriterOutput
-    narration: NarrationOutput
-
-
-async def generate_tour(
-    user_request: str,
-    *,
-    location: str,
-    geocoder: Geocoder,
-    tts_provider: TTSProvider,
-    voice: str,
-    voice_style: str | None = None,
-    tts_model: str | None = None,
-    audio_format: str = "wav",
-) -> TourGenerationOutput:
-    with logfire.span(
-        "Generate tour",
-        location=location,
-        has_voice_style=voice_style is not None,
-        audio_format=audio_format,
-    ):
-        logger.info(
-            "Starting tour generation location=%s has_voice_style=%s audio_format=%s",
-            location,
-            voice_style is not None,
-            audio_format,
-        )
-
-        checkpoint_research, checkpoint_coordinates = await research_checkpoints(
-            user_request, location=location, geocoder=geocoder
-        )
-        route_plan = await plan_route(checkpoint_research)
-        chapters = await write_chapters(
-            route_plan,
-            checkpoint_research=checkpoint_research,
-            location=location,
-            voice_style=voice_style,
-        )
-        narration = await narrate_tour(
-            chapters, tts_provider=tts_provider, voice=voice, model=tts_model, audio_format=audio_format
-        )
-
-        return TourGenerationOutput(
-            checkpoint_research=checkpoint_research,
-            checkpoint_coordinates=checkpoint_coordinates,
-            route_plan=route_plan,
-            chapters=chapters,
-            narration=narration,
-        )
+class CheckpointResearchRun(BaseModel):
+    output: CheckpointResearchOutput
+    coordinates: list[CheckpointCoordinates]
+    agent_messages: list[dict[str, Any]]
 
 
 async def research_checkpoints(
-    user_request: str,
     *,
+    user_request: str,
     location: str,
     geocoder: Geocoder,
-) -> tuple[CheckpointResearchOutput, list[CheckpointCoordinates]]:
-    logger.info("Starting checkpoint research")
-    checkpoint_artifacts = CheckpointResearchArtifacts()
+    feedback: str | None = None,
+    message_history: list[dict[str, Any]] | None = None,
+) -> CheckpointResearchRun:
+    artifacts = CheckpointResearchArtifacts()
+    restored_history = (
+        ModelMessagesTypeAdapter.validate_python(message_history)
+        if message_history
+        else None
+    )
+    prompt = user_request
+    if feedback is not None:
+        prompt = (
+            "Revise the complete checkpoint shortlist in response to this user "
+            f"feedback.\n\nOriginal request:\n{user_request}\n\n"
+            f"Latest feedback:\n{feedback}\n\n"
+            "Return a complete replacement shortlist, not a partial edit. Re-run "
+            "estimate_place_distances with the final shortlist before returning it."
+        )
     result = await checkpoint_research_agent.run(
-        user_request,
+        prompt,
         deps=CheckpointResearchDeps(
             location=location,
             geocoder=geocoder,
-            artifacts=checkpoint_artifacts,
+            artifacts=artifacts,
         ),
+        message_history=restored_history,
     )
-    checkpoint_research = result.output
-    checkpoint_coordinates = _checkpoint_coordinates(
-        checkpoint_research,
-        checkpoint_artifacts,
+    coordinates = [
+        CheckpointCoordinates(
+            place_name=place.place_name,
+            lat=place.lat,
+            lon=place.lon,
+            formatted_address=place.formatted_address,
+        )
+        for place in artifacts.geocoded_places.values()
+    ]
+    return CheckpointResearchRun(
+        output=result.output,
+        coordinates=coordinates,
+        agent_messages=to_jsonable_python(result.all_messages()),
     )
-    logger.info(
-        "Checkpoint research complete checkpoint_count=%s coordinate_count=%s",
-        len(checkpoint_research.proposals),
-        len(checkpoint_coordinates),
-    )
-    return checkpoint_research, checkpoint_coordinates
 
 
 async def plan_route(
     checkpoint_research: CheckpointResearchOutput,
+    *,
+    feedback: str | None = None,
 ) -> RoutePlanOutput:
-    logger.info("Starting route planning")
+    prompt = "Order these checkpoints into a coherent walking tour."
+    if feedback is not None:
+        prompt += f"\n\nThe user's feedback on the previous plan was:\n{feedback}"
     result = await route_planner_agent.run(
-        "Order the selected checkpoints.",
+        prompt,
         deps=RoutePlannerDeps(checkpoints=checkpoint_research.proposals),
     )
-    route_plan = result.output
-    logger.info(
-        "Route planning complete ordered_checkpoint_count=%s",
-        len(route_plan.ordered_checkpoints),
-    )
-    return route_plan
+    return result.output
 
 
 async def write_chapters(
-    route_plan: RoutePlanOutput,
     *,
+    route_plan: RoutePlanOutput,
     checkpoint_research: CheckpointResearchOutput,
     location: str,
     voice_style: str | None = None,
 ) -> ChapterWriterOutput:
-    logger.info("Starting chapter writing")
     result = await chapter_writer_agent.run(
-        "Write narration chapters for the ordered checkpoints.",
+        "Write the chapters for this approved walking tour.",
         deps=ChapterWriterDeps(
             route_plan=route_plan,
             location=location,
@@ -152,50 +117,21 @@ async def write_chapters(
             voice_style=voice_style,
         ),
     )
-    chapters = result.output
-    logger.info("Chapter writing complete chapter_count=%s", len(chapters.chapters))
-    return chapters
+    return result.output
 
 
 async def narrate_tour(
-    chapters: ChapterWriterOutput,
     *,
+    chapters: ChapterWriterOutput,
     tts_provider: TTSProvider,
     voice: str,
     model: str | None = None,
     audio_format: str = "wav",
 ) -> NarrationOutput:
-    logger.info("Starting narration")
-    narration = await narrate_chapters(
+    return await narrate_chapters(
         chapters,
         tts_provider,
         voice=voice,
         model=model,
         audio_format=audio_format,
     )
-    logger.info(
-        "Narration complete narrated_chapter_count=%s",
-        len(narration.chapters),
-    )
-    return narration
-
-
-def _checkpoint_coordinates(
-    checkpoint_research: CheckpointResearchOutput,
-    checkpoint_artifacts: CheckpointResearchArtifacts,
-) -> list[CheckpointCoordinates]:
-    coordinates: list[CheckpointCoordinates] = []
-    for proposal in checkpoint_research.proposals:
-        place = checkpoint_artifacts.geocoded_places.get(proposal.distance_tool_place_name)
-        if place is None:
-            continue
-        coordinates.append(
-            CheckpointCoordinates(
-                title=proposal.title,
-                distance_tool_place_name=proposal.distance_tool_place_name,
-                lat=place.lat,
-                lon=place.lon,
-                formatted_address=place.formatted_address,
-            )
-        )
-    return coordinates

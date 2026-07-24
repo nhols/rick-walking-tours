@@ -1,152 +1,189 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, ClassVar, Literal, cast
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import UUID
 
-from pydantic import BaseModel, Field as PydanticField
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter, ModelRequest, UserPromptPart
-from sqlalchemy import JSON, Column
-from sqlalchemy.engine.interfaces import Dialect
-from sqlalchemy.types import TypeDecorator
-from sqlmodel import Field, Relationship, SQLModel
+from pydantic import BaseModel, Field, field_validator
 
 
-type JSONPrimitive = str | int | float | bool | None
-type JSONValue = JSONPrimitive | list["JSONValue"] | dict[str, "JSONValue"]
-type MessageHistory = list[ModelMessage]
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-class JobStatus(str, Enum):
-    pending = "pending"
-    running = "running"
-    awaiting_input = "awaiting_input"
-    complete = "complete"
-    failed = "failed"
+class TourStatus(str, Enum):
+    RESEARCHING = "researching"
+    PLANNING_ROUTE = "planning_route"
+    AWAITING_REVIEW = "awaiting_review"
+    WRITING_CHAPTERS = "writing_chapters"
+    GENERATING_AUDIO = "generating_audio"
+    READY = "ready"
+    FAILED = "failed"
 
 
-class StageStatus(str, Enum):
-    pending = "pending"
-    running = "running"
-    awaiting_approval = "awaiting_approval"
-    approved = "approved"
-    complete = "complete"
-    failed = "failed"
+class ChapterStatus(str, Enum):
+    WRITTEN = "written"
+    READY = "ready"
 
 
-class TourInput(BaseModel):
-    location: str = PydanticField(min_length=1)
-    description: str = PydanticField(min_length=1)
-
-
-class TourInputJSON(TypeDecorator[TourInput]):
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(self, value: TourInput | None, dialect: Dialect) -> JSONValue | None:
-        if value is None:
-            return None
-        return cast(JSONValue, value.model_dump(mode="json"))
-
-    def process_result_value(self, value: object | None, dialect: Dialect) -> TourInput | None:
-        if value is None:
-            return None
-        return TourInput.model_validate(value)
-
-
-class MessageHistoryJSON(TypeDecorator[MessageHistory]):
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(self, value: MessageHistory | None, dialect: Dialect) -> JSONValue:
-        if value is None:
-            return []
-        return cast(JSONValue, ModelMessagesTypeAdapter.dump_python(value, mode="json"))
-
-    def process_result_value(self, value: object | None, dialect: Dialect) -> MessageHistory:
-        if value is None:
-            return []
-        return ModelMessagesTypeAdapter.validate_python(value)
-
-
-def now_utc() -> datetime:
-    return datetime.now(UTC)
-
-
-class Job(SQLModel, table=True):
-    __tablename__: ClassVar[str] = "jobs"
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    status: JobStatus = Field(default=JobStatus.pending, index=True)
-    input: TourInput = Field(sa_column=Column(TourInputJSON(), nullable=False))
-    current_stage: str = Field(default="checkpoint_research", index=True)
-    created_at: datetime = Field(default_factory=now_utc, index=True)
-
-    stages: list["Stage"] = Relationship(back_populates="job")
-
-
-class Stage(SQLModel, table=True):
-    __tablename__: ClassVar[str] = "stages"
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    job_id: UUID = Field(foreign_key="jobs.id", index=True)
-    name: str = Field(index=True)
-    status: StageStatus = Field(default=StageStatus.pending, index=True)
-    state: MessageHistory = Field(
-        default_factory=list,
-        sa_column=Column(MessageHistoryJSON(), nullable=False),
-    )
-
-    job: Job = Relationship(back_populates="stages")
-
-
-class JobCreate(BaseModel):
-    input: TourInput
-
-
-class ApproveEvent(BaseModel):
-    type: Literal["approve"]
-
-
-class FeedbackEvent(BaseModel):
-    type: Literal["feedback"]
-    message: str = PydanticField(min_length=1)
-
-
-type JobEvent = Annotated[ApproveEvent | FeedbackEvent, PydanticField(discriminator="type")]
-
-
-class StageRead(BaseModel):
+class Tour(BaseModel):
     id: UUID
-    job_id: UUID
-    name: str
-    status: StageStatus
-    state: MessageHistory
-
-    model_config = {"from_attributes": True}
-
-
-class JobRead(BaseModel):
-    id: UUID
-    status: JobStatus
-    input: TourInput
-    current_stage: str
+    owner_id: UUID
+    location: str
+    request: str
+    status: TourStatus
+    title: str | None = None
+    narrative_arc: str | None = None
+    voice: str
+    voice_style: str | None = None
+    tts_model: str | None = None
+    audio_format: str
+    tts_style: dict[str, Any] | None = None
+    current_plan_revision: int
+    approved_plan_id: UUID | None = None
+    progress_message: str | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    error_message: str | None = None
+    approved_at: datetime | None = None
     created_at: datetime
-    stages: list[StageRead]
-
-    model_config = {"from_attributes": True}
+    updated_at: datetime
 
 
-class JobSummary(BaseModel):
+class TourPlan(BaseModel):
     id: UUID
-    status: JobStatus
-    input: TourInput
-    current_stage: str
+    tour_id: UUID
+    revision: int
+    checkpoint_research: dict[str, Any]
+    route_plan: dict[str, Any]
+    parent_plan_id: UUID | None = None
+    feedback: str | None = None
+    checkpoint_agent_messages: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
 
 
-def user_message(content: str) -> ModelRequest:
-    return ModelRequest(parts=[UserPromptPart(content=content)])
+class TourCheckpoint(BaseModel):
+    id: UUID
+    tour_id: UUID
+    plan_id: UUID
+    position: int
+    title: str
+    description: str
+    route_reasoning: str
+    distance_tool_place_name: str
+    lat: float
+    lon: float
+    formatted_address: str | None = None
 
 
-def app_message(content: str) -> ModelRequest:
-    return ModelRequest(parts=[UserPromptPart(content=content)])
+class TourChapter(BaseModel):
+    id: UUID
+    tour_id: UUID
+    plan_id: UUID
+    checkpoint_id: UUID
+    position: int
+    title: str
+    narration: str
+    status: ChapterStatus
+    audio_path: str | None = None
+    media_type: str | None = None
+    audio_format: str | None = None
+    byte_count: int | None = None
+    voice: str | None = None
+    model: str | None = None
+    duration_seconds: float | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TourCreate(BaseModel):
+    location: str = Field(min_length=1, max_length=240)
+    request: str = Field(min_length=1, max_length=4_000)
+    voice: str = Field(default="Kore", min_length=1, max_length=120)
+    voice_style: str | None = Field(default=None, max_length=2_000)
+    tts_model: str | None = Field(default=None, max_length=240)
+    audio_format: str = Field(default="wav", min_length=1, max_length=20)
+
+
+class TourApproval(BaseModel):
+    plan_id: UUID
+
+
+class TourFeedback(BaseModel):
+    plan_id: UUID
+    feedback: str = Field(min_length=1, max_length=2_000)
+
+    @field_validator("feedback")
+    @classmethod
+    def feedback_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Feedback must not be blank")
+        return value
+
+
+class CheckpointRead(BaseModel):
+    id: UUID
+    position: int
+    title: str
+    description: str
+    route_reasoning: str
+    distance_tool_place_name: str
+    lat: float
+    lon: float
+    formatted_address: str | None
+
+
+class PlanRead(BaseModel):
+    id: UUID
+    revision: int
+    parent_plan_id: UUID | None
+    feedback: str | None
+    narrative_arc: str
+    checkpoints: list[CheckpointRead]
+    created_at: datetime
+
+
+class ChapterRead(BaseModel):
+    id: UUID
+    position: int
+    title: str
+    narration: str
+    status: ChapterStatus
+    audio_url: str | None
+    media_type: str | None
+    audio_format: str | None
+    byte_count: int | None
+    voice: str | None
+    model: str | None
+    duration_seconds: float | None
+
+
+class TourRead(BaseModel):
+    id: UUID
+    owner_id: UUID
+    location: str
+    request: str
+    status: TourStatus
+    title: str | None
+    voice: str
+    voice_style: str | None
+    progress_message: str | None
+    progress_current: int | None
+    progress_total: int | None
+    error_message: str | None
+    approved_plan_id: UUID | None
+    plan: PlanRead | None
+    chapters: list[ChapterRead]
+    created_at: datetime
+    updated_at: datetime
+
+
+class TourSummary(BaseModel):
+    id: UUID
+    location: str
+    request: str
+    status: TourStatus
+    title: str | None
+    progress_message: str | None
+    created_at: datetime
+    updated_at: datetime

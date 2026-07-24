@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Private Rick generation worker
+
+Parameters:
+  WorkerImageUri:
+    Type: String
+  SupabaseUrl:
+    Type: String
+  SupabaseServiceRoleKey:
+    Type: String
+    NoEcho: true
+  GoogleApiKey:
+    Type: String
+    NoEcho: true
+  GoogleMapsApiKey:
+    Type: String
+    NoEcho: true
+
+Resources:
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref WorkerImageUri
+      Architectures: [arm64]
+      MemorySize: 2048
+      Timeout: 900
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+          GOOGLE_API_KEY: !Ref GoogleApiKey
+          GOOGLE_MAPS_API_KEY: !Ref GoogleMapsApiKey
+
+  EdgeFunctionInvoker:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: InvokeOnlyRickWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt WorkerFunction.Arn
+
+Outputs:
+  WorkerFunctionName:
+    Value: !Ref WorkerFunction
+  WorkerFunctionArn:
+    Value: !GetAtt WorkerFunction.Arn
+  EdgeFunctionInvokerUser:
+    Value: !Ref EdgeFunctionInvoker

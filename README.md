@@ -1,0 +1,114 @@
+# Rick
+
+Walking-tour generation pipeline with a Supabase-backed local development
+environment.
+
+## Local development
+
+Prerequisites:
+
+- Docker Desktop
+- Node.js and npm
+- `uv`
+
+Install dependencies and create your local secrets file:
+
+```bash
+make install
+```
+
+Set `GOOGLE_API_KEY` and `GOOGLE_MAPS_API_KEY` in `.env`, then start the local
+stack. The first key is used for Gemini and the second for Google Maps Places:
+
+```bash
+make up
+```
+
+Stop the stack without deleting locally generated tours:
+
+```bash
+make down
+```
+
+Other useful commands are `make status`, `make test`, `make build`, and
+`make grant-credits EMAIL=user@example.com AMOUNT=5`. `make dev` is an alias
+for `make up`.
+
+`scripts/dev.py` supplies the local Supabase URL and publishable key to Vite.
+For a standalone frontend build or deployment, set the two variables listed
+in `frontend/.env.example` in the hosting environment.
+
+This starts local Supabase (including the Edge Function), the private local
+worker adapter, and the PWA together. The browser always sends commands through
+the Edge Function; locally it invokes the Python worker over an internal
+development endpoint, while production uses AWS `InvokeFunction`.
+
+Local URLs:
+
+- Supabase API: `http://127.0.0.1:54321`
+- Supabase Studio: `http://127.0.0.1:54323`
+- Local worker health: `http://127.0.0.1:8001/health`
+- PWA: `http://127.0.0.1:5173`
+
+Local demo login:
+
+```text
+demo@rick.local
+password123
+```
+
+The seed also creates three credits and one Edinburgh tour awaiting review.
+
+You can install the local PWA from Chrome's address bar. Service workers and
+installation are supported on `localhost`/`127.0.0.1`; HTTPS is required when
+the app is deployed.
+
+## Users and credits
+
+Users can sign themselves up from the PWA. An administrator can also create a
+user under **Authentication → Users** in Supabase Studio.
+
+Grant credits to an existing user by email:
+
+```bash
+make grant-credits EMAIL=user@example.com AMOUNT=5
+```
+
+The command uses the local Supabase instance when it is running. In a deployed
+environment, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` before running
+it. The service-role key is an admin secret and must never be exposed to the
+PWA. One credit is deducted transactionally when a plan is approved.
+
+## Database changes
+
+The schema is owned by SQL files in `supabase/migrations/`; Python Pydantic
+models validate records but never create tables.
+
+Create and apply a migration locally:
+
+```bash
+npx supabase migration new describe_the_change
+npm run supabase:reset
+```
+
+`supabase db reset` rebuilds the local database from every committed migration
+and then loads `supabase/seed.sql`.
+
+## Command flow
+
+The PWA invokes the authenticated `tour-commands` Supabase Edge Function. It
+creates an idempotent generation run and returns `202`; the PWA then polls
+Supabase for progress. The local worker and private Lambda share the same event
+handler and write results directly to Supabase with the service-role key.
+
+In production set `WORKER_INVOKER=aws`, `AWS_REGION`, and
+`WORKER_FUNCTION_NAME` as Edge Function secrets, along with AWS credentials
+that can only invoke that function. The Lambda has no Function URL or API
+Gateway route.
+
+## Tests
+
+```bash
+uv run python -m unittest discover -s tests -v
+uv run ty check src tests
+```

@@ -1,9 +1,7 @@
 {
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "moduleSuffixes": [".ios", ".android", ".native", ".web", ""],
-    "resolveJsonModule": true,
-    "noEmit": true
-  }
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
 }

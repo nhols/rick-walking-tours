@@ -42,6 +42,7 @@ route_planner_agent = Agent[
     deps_type=RoutePlannerDeps,
     output_type=RoutePlanOutput,
     retries=AGENT_RETRIES,
+    defer_model_check=True,
     instructions="""
 You order selected walking-tour checkpoints.
 

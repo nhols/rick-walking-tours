@@ -1,2 +1,3 @@
-"""FastAPI backend for tour generation jobs."""
+from tour_gen.backend.app import app, create_app
 
+__all__ = ["app", "create_app"]
