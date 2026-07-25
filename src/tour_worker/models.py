@@ -1,17 +1,30 @@
-from typing import Any, Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class WorkerEvent(BaseModel):
-    job_id: UUID
-    tour_id: UUID
-    kind: Literal["plan", "revise", "produce"]
+class PlanPayload(BaseModel):
+    kind: Literal["plan"]
+
+
+class RevisionPayload(BaseModel):
+    kind: Literal["revise"]
+    plan_id: UUID
+    feedback: str
+
+
+class ProductionPayload(BaseModel):
+    kind: Literal["produce"]
+    plan_id: UUID
+
+
+type JobPayload = Annotated[
+    PlanPayload | RevisionPayload | ProductionPayload,
+    Field(discriminator="kind"),
+]
 
 
 class TourJob(BaseModel):
-    id: UUID
     tour_id: UUID
-    kind: Literal["plan", "revise", "produce"]
-    input: dict[str, Any]
+    payload: JobPayload

@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { invokeWorker, type WorkerEvent } from "../_shared/worker-invoker.ts";
+import { invokeWorker } from "../_shared/worker-invoker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,14 +40,12 @@ Deno.serve(async (request) => {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
     let result: CommandResult;
-    let workerKind: WorkerEvent["kind"];
     if (action === "create") {
       result = await command(admin, "enqueue_tour_creation", {
         p_owner_id: userData.user.id,
         p_input: tourInput(body),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerKind = "plan";
     } else if (action === "feedback") {
       result = await command(admin, "enqueue_tour_feedback", {
         p_owner_id: userData.user.id,
@@ -56,7 +54,6 @@ Deno.serve(async (request) => {
         p_feedback: string(body.feedback, "feedback"),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerKind = "revise";
     } else if (action === "approve") {
       result = await command(admin, "enqueue_tour_production", {
         p_owner_id: userData.user.id,
@@ -64,12 +61,11 @@ Deno.serve(async (request) => {
         p_plan_id: string(body.plan_id, "plan_id"),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerKind = "produce";
     } else {
       return json({ error: "Unknown action" }, 400);
     }
 
-    await invokeWorker({ ...result, kind: workerKind });
+    await invokeWorker(result.job_id);
     return json(result, 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Command failed";

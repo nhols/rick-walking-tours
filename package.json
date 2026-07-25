@@ -3,7 +3,6 @@
   "private": true,
   "scripts": {
     "dev": "uv run python scripts/dev.py",
-    "dev:worker": "uv run uvicorn tour_worker.local:app --reload --port 8001",
     "credits:grant": "uv run python scripts/grant_credits.py",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

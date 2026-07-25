@@ -1,10 +1,9 @@
 import asyncio
-from typing import Any
+from uuid import UUID
 
-from tour_worker.models import WorkerEvent
 from tour_worker.worker import process_event
 
 
-def handler(event: dict[str, Any], _context: Any) -> dict[str, bool]:
-    asyncio.run(process_event(WorkerEvent.model_validate(event)))
+def handler(event: dict[str, object], _context: object) -> dict[str, bool]:
+    asyncio.run(process_event(UUID(str(event["job_id"]))))
     return {"ok": True}

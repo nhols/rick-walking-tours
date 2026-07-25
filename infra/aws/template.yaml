@@ -16,6 +16,9 @@ Parameters:
   GoogleMapsApiKey:
     Type: String
     NoEcho: true
+  MapboxAccessToken:
+    Type: String
+    NoEcho: true
 
 Resources:
   WorkerFunction:
@@ -33,6 +36,7 @@ Resources:
           SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
           GOOGLE_API_KEY: !Ref GoogleApiKey
           GOOGLE_MAPS_API_KEY: !Ref GoogleMapsApiKey
+          MAPBOX_ACCESS_TOKEN: !Ref MapboxAccessToken
 
   EdgeFunctionInvoker:
     Type: AWS::IAM::User

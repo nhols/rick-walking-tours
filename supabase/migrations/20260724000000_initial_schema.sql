@@ -69,8 +69,11 @@ create index credit_transactions_user_idx
 create table public.tour_jobs (
   id uuid primary key default gen_random_uuid(),
   tour_id uuid not null references public.tours(id) on delete cascade,
-  kind text not null,
-  input jsonb not null default '{}'::jsonb check (jsonb_typeof(input) = 'object'),
+  payload jsonb not null check (
+    jsonb_typeof(payload) = 'object'
+    and payload ? 'kind'
+    and payload ->> 'kind' in ('plan', 'revise', 'produce')
+  ),
   status text not null default 'pending'
     check (status in ('pending', 'running', 'completed', 'failed')),
   idempotency_key text not null unique,
@@ -315,8 +318,8 @@ begin
   insert into public.tour_status_events (tour_id, status)
   values (v_tour_id, 'researching');
 
-  insert into public.tour_jobs (tour_id, kind, idempotency_key)
-  values (v_tour_id, 'plan', p_idempotency_key)
+  insert into public.tour_jobs (tour_id, payload, idempotency_key)
+  values (v_tour_id, jsonb_build_object('kind', 'plan'), p_idempotency_key)
   returning * into v_job;
 
   return jsonb_build_object('tour_id', v_tour_id, 'job_id', v_job.id);
@@ -373,11 +376,14 @@ begin
     raise exception 'Feedback is required';
   end if;
 
-  insert into public.tour_jobs (tour_id, kind, input, idempotency_key)
+  insert into public.tour_jobs (tour_id, payload, idempotency_key)
   values (
     p_tour_id,
-    'revise',
-    jsonb_build_object('plan_id', p_plan_id, 'feedback', btrim(p_feedback)),
+    jsonb_build_object(
+      'kind', 'revise',
+      'plan_id', p_plan_id,
+      'feedback', btrim(p_feedback)
+    ),
     p_idempotency_key
   ) returning * into v_job;
 
@@ -416,11 +422,10 @@ begin
 
   perform public.begin_tour_production(p_tour_id, p_plan_id);
 
-  insert into public.tour_jobs (tour_id, kind, input, idempotency_key)
+  insert into public.tour_jobs (tour_id, payload, idempotency_key)
   values (
     p_tour_id,
-    'produce',
-    jsonb_build_object('plan_id', p_plan_id),
+    jsonb_build_object('kind', 'produce', 'plan_id', p_plan_id),
     p_idempotency_key
   ) returning * into v_job;
 

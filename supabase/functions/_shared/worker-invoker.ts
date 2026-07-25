@@ -1,49 +1,30 @@
 import { InvokeCommand, LambdaClient } from "npm:@aws-sdk/client-lambda@3";
 
-export interface WorkerEvent {
-  job_id: string;
-  tour_id: string;
-  kind: "plan" | "revise" | "produce";
-}
-
-export async function invokeWorker(event: WorkerEvent): Promise<void> {
+export async function invokeWorker(jobId: string): Promise<void> {
   const mode = Deno.env.get("WORKER_INVOKER") ?? "local";
-  if (mode === "local") {
-    await invokeLocalWorker(event);
-    return;
+  if (mode !== "local" && mode !== "aws") {
+    throw new Error(`Unsupported WORKER_INVOKER: ${mode}`);
   }
-  if (mode !== "aws") throw new Error(`Unsupported WORKER_INVOKER: ${mode}`);
-
-  const functionName = required("WORKER_FUNCTION_NAME");
-  const client = new LambdaClient({ region: required("AWS_REGION") });
+  const local = mode === "local";
+  const functionName = local
+    ? Deno.env.get("WORKER_FUNCTION_NAME") ?? "WorkerFunction"
+    : required("WORKER_FUNCTION_NAME");
+  const client = new LambdaClient({
+    region: local ? "eu-west-2" : required("AWS_REGION"),
+    endpoint: local ? "http://host.docker.internal:3001" : undefined,
+    credentials: local
+      ? { accessKeyId: "local", secretAccessKey: "local" }
+      : undefined
+  });
   const response = await client.send(
     new InvokeCommand({
       FunctionName: functionName,
       InvocationType: "Event",
-      Payload: new TextEncoder().encode(JSON.stringify(event))
+      Payload: new TextEncoder().encode(JSON.stringify({ job_id: jobId }))
     })
   );
   if (response.StatusCode !== 202) {
     throw new Error(`Lambda rejected the worker event (${response.StatusCode})`);
-  }
-}
-
-async function invokeLocalWorker(event: WorkerEvent): Promise<void> {
-  const url =
-    Deno.env.get("LOCAL_WORKER_URL") ??
-    "http://host.docker.internal:8001/internal/invoke";
-  const token =
-    Deno.env.get("LOCAL_WORKER_TOKEN") ?? required("SUPABASE_SERVICE_ROLE_KEY");
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Local-Worker-Token": token
-    },
-    body: JSON.stringify(event)
-  });
-  if (!response.ok) {
-    throw new Error(`Local worker rejected the event (${response.status})`);
   }
 }
 

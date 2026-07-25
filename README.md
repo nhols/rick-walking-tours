@@ -10,6 +10,7 @@ Prerequisites:
 - Docker Desktop
 - Node.js and npm
 - `uv`
+- AWS SAM CLI 1.151 or newer
 
 Install dependencies and create your local secrets file:
 
@@ -39,16 +40,17 @@ for `make up`.
 For a standalone frontend build or deployment, set the two variables listed
 in `frontend/.env.example` in the hosting environment.
 
-This starts local Supabase (including the Edge Function), the private local
-worker adapter, and the PWA together. The browser always sends commands through
-the Edge Function; locally it invokes the Python worker over an internal
-development endpoint, while production uses AWS `InvokeFunction`.
+This builds the Lambda image and starts local Supabase, the SAM Lambda emulator,
+and the PWA together. The browser always sends commands through the Edge
+Function, which uses the AWS SDK to invoke the same image and handler locally
+and in production. Restart `make up` after changing Python code so the image is
+rebuilt.
 
 Local URLs:
 
 - Supabase API: `http://127.0.0.1:54321`
 - Supabase Studio: `http://127.0.0.1:54323`
-- Local worker health: `http://127.0.0.1:8001/health`
+- Local Lambda endpoint: `http://127.0.0.1:3001`
 - PWA: `http://127.0.0.1:5173`
 
 Local demo login:
@@ -98,14 +100,16 @@ and then loads `supabase/seed.sql`.
 ## Command flow
 
 The PWA invokes the authenticated `tour-commands` Supabase Edge Function. It
-creates an idempotent tour job and returns `202`; the PWA then polls
-Supabase for progress. The local worker and private Lambda share the same event
-handler and write results directly to Supabase with the service-role key.
+creates an idempotent tour job and returns `202`; the PWA then polls Supabase
+for progress. Locally, the Edge Function invokes the Lambda image through SAM's
+local AWS endpoint. The same private Lambda handler runs in production and
+writes results directly to Supabase with the service-role key.
 
 In production set `WORKER_INVOKER=aws`, `AWS_REGION`, and
 `WORKER_FUNCTION_NAME` as Edge Function secrets, along with AWS credentials
-that can only invoke that function. The Lambda has no Function URL or API
-Gateway route.
+that can only invoke that function. Supply the Google, Google Maps, and Mapbox
+secrets to the Lambda stack. The Lambda has no Function URL or API Gateway
+route.
 
 ## Tests
 
