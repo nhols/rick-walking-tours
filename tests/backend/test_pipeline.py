@@ -1,14 +1,49 @@
 import unittest
+from types import SimpleNamespace
+from typing import cast
 
-from pydantic_ai import BinaryContent, ModelMessage
+from pydantic_ai import BinaryContent, ModelMessage, ModelRetry, RunContext
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
+from tour_gen.agents.checkpoint_researcher import (
+    CheckpointProposal,
+    CheckpointResearchDeps,
+    CheckpointResearchOutput,
+    validate_checkpoint_output,
+)
 from tour_gen.geo.distance_matrix import GeocodedPlace
 from tour_gen.geo.static_map import checkpoint_map_url
 from tour_gen.pipeline import _without_binary_content
 
 
 class PlanningPipelineTest(unittest.TestCase):
+    def test_checkpoint_count_must_be_within_requested_range(self) -> None:
+        context = cast(
+            RunContext[CheckpointResearchDeps],
+            SimpleNamespace(deps=SimpleNamespace(min_stops=3, max_stops=4)),
+        )
+
+        for count in (2, 5):
+            with self.subTest(count=count), self.assertRaisesRegex(
+                ModelRetry,
+                f"returned {count}",
+            ):
+                validate_checkpoint_output(
+                    context,
+                    CheckpointResearchOutput(
+                        narrative_arc="Test route",
+                        ordered_checkpoints=[
+                            CheckpointProposal(
+                                title=f"Stop {index}",
+                                brief_description="Description",
+                                route_reasoning="Reason",
+                                distance_tool_place_name=f"Place {index}",
+                            )
+                            for index in range(count)
+                        ],
+                    ),
+                )
+
     def test_checkpoint_map_contains_numbered_pins(self) -> None:
         url = checkpoint_map_url(
             [

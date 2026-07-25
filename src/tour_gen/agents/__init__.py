@@ -14,7 +14,7 @@ from tour_gen.agents.checkpoint_researcher import (
     add_location_instruction,
     checkpoint_research_agent,
     estimate_place_distances,
-    validate_checkpoint_distances_were_checked,
+    validate_checkpoint_output,
 )
 from tour_gen.geo.distance_matrix import DistanceMatrixEntry
 from tour_gen.geo.geoencode import GeocodeResult, Geocoder
@@ -36,5 +36,5 @@ __all__ = [
     "add_location_instruction",
     "checkpoint_research_agent",
     "estimate_place_distances",
-    "validate_checkpoint_distances_were_checked",
+    "validate_checkpoint_output",
 ]

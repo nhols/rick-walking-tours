@@ -8,7 +8,7 @@ from tour_gen.agents.checkpoint_researcher.models import (
 from tour_gen.agents.checkpoint_researcher.tools import estimate_place_distances
 from tour_gen.agents.checkpoint_researcher.validation import (
     add_location_instruction,
-    validate_checkpoint_distances_were_checked,
+    validate_checkpoint_output,
 )
 
 
@@ -62,4 +62,4 @@ Do not write chapter scripts. Do not generate audio. Do not create quizzes.
 )
 
 checkpoint_research_agent.instructions(add_location_instruction)
-checkpoint_research_agent.output_validator(validate_checkpoint_distances_were_checked)
+checkpoint_research_agent.output_validator(validate_checkpoint_output)

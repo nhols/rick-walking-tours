@@ -19,7 +19,7 @@ def add_location_instruction(ctx: RunContext[CheckpointResearchDeps]) -> str:
     )
 
 
-def validate_checkpoint_distances_were_checked(
+def validate_checkpoint_output(
     ctx: RunContext[CheckpointResearchDeps],
     output: CheckpointResearchOutput,
 ) -> CheckpointResearchOutput:
