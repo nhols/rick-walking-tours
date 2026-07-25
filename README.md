@@ -18,9 +18,10 @@ Install dependencies and create your local secrets file:
 make install
 ```
 
-Set `GOOGLE_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `MAPBOX_ACCESS_TOKEN` in
-`.env`, then start the local stack. They are used for Gemini, Google Maps
-Places, and the checkpoint map shown to the planning agent:
+Set `GOOGLE_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`, and
+`MAPBOX_ACCESS_TOKEN` in `.env`, then start the local stack. They are used for
+Gemini, Google Maps Places, Logfire tracing, and the checkpoint map shown to
+the planning agent:
 
 ```bash
 make up
@@ -108,8 +109,8 @@ writes results directly to Supabase with the service-role key.
 In production set `WORKER_INVOKER=aws`, `AWS_REGION`, and
 `WORKER_FUNCTION_NAME` as Edge Function secrets, along with AWS credentials
 that can only invoke that function. Supply the Google, Google Maps, and Mapbox
-secrets to the Lambda stack. The Lambda has no Function URL or API Gateway
-route.
+secrets to the Lambda stack, including `LogfireToken`. The Lambda has no
+Function URL or API Gateway route.
 
 ## Tests
 

@@ -16,6 +16,9 @@ Parameters:
   GoogleMapsApiKey:
     Type: String
     NoEcho: true
+  LogfireToken:
+    Type: String
+    NoEcho: true
   MapboxAccessToken:
     Type: String
     NoEcho: true
@@ -36,6 +39,7 @@ Resources:
           SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
           GOOGLE_API_KEY: !Ref GoogleApiKey
           GOOGLE_MAPS_API_KEY: !Ref GoogleMapsApiKey
+          LOGFIRE_TOKEN: !Ref LogfireToken
           MAPBOX_ACCESS_TOKEN: !Ref MapboxAccessToken
 
   EdgeFunctionInvoker:

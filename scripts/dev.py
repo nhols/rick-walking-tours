@@ -25,6 +25,7 @@ def main() -> None:
         for name in (
             "GOOGLE_API_KEY",
             "GOOGLE_MAPS_API_KEY",
+            "LOGFIRE_TOKEN",
             "MAPBOX_ACCESS_TOKEN",
         )
     }
@@ -142,6 +143,7 @@ def _local_parameters() -> str:
         "SupabaseServiceRoleKey",
         "GoogleApiKey",
         "GoogleMapsApiKey",
+        "LogfireToken",
         "MapboxAccessToken",
     )
     values = [f"ParameterKey={name},ParameterValue=local" for name in names]
