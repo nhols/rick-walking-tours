@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class TourStatus(str, Enum):
@@ -27,9 +27,9 @@ class TourInput(BaseModel):
     audio_format: str = Field(default="wav", min_length=1, max_length=20)
 
     @model_validator(mode="after")
-    def stop_range_must_be_ordered(self) -> "TourInput":
+    def validate_stop_range(self) -> "TourInput":
         if self.min_stops > self.max_stops:
-            raise ValueError("min_stops must be less than or equal to max_stops")
+            raise ValueError("min_stops must not exceed max_stops")
         return self
 
 
@@ -84,58 +84,3 @@ class TourChapter(BaseModel):
 class TourOutputPayload(BaseModel):
     tts_style: dict[str, Any]
     chapters: list[TourChapter]
-
-
-class TourOutput(BaseModel):
-    id: UUID
-    tour_id: UUID
-    plan_id: UUID
-    payload: TourOutputPayload
-    created_at: datetime
-
-
-class TourApproval(BaseModel):
-    plan_id: UUID
-
-
-class TourFeedback(BaseModel):
-    plan_id: UUID
-    feedback: str = Field(min_length=1, max_length=2_000)
-
-    @field_validator("feedback")
-    @classmethod
-    def feedback_must_not_be_blank(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("Feedback must not be blank")
-        return value
-
-
-class PlanRead(BaseModel):
-    id: UUID
-    revision: int
-    feedback: str | None
-    payload: TourPlanPayload
-    created_at: datetime
-
-
-class TourRead(BaseModel):
-    id: UUID
-    owner_id: UUID
-    status: TourStatus
-    title: str | None
-    input: TourInput
-    approved_plan_id: UUID | None
-    plan: PlanRead | None
-    output: TourOutputPayload | None
-    created_at: datetime
-    updated_at: datetime
-
-
-class TourSummary(BaseModel):
-    id: UUID
-    status: TourStatus
-    title: str | None
-    input: TourInput
-    created_at: datetime
-    updated_at: datetime
