@@ -4,11 +4,15 @@ import {
   CircleAlert,
   LoaderCircle,
   MessageCircle,
-  RefreshCw,
   Send
 } from "lucide-react";
 import { approveTour, reviseTour } from "../lib/api";
-import { ACTIVE_STATUSES, STATUS_LABELS, type TourBundle } from "../types";
+import {
+  ACTIVE_STATUSES,
+  STATUS_LABELS,
+  type TourBundle,
+  type TourStatus
+} from "../types";
 
 
 const CheckpointMap = lazy(() => import("./CheckpointMap"));
@@ -30,6 +34,8 @@ export function GenerationReview({
     bundle.plans.find((plan) => plan.id === selectedPlanId) ?? currentPlan;
   const canReview = bundle.tour.status === "awaiting_review" && currentPlan;
   const latestError = bundle.statusEvents.at(-1)?.details?.error;
+  const isActive = ACTIVE_STATUSES.includes(bundle.tour.status);
+  const statusMessage = getStatusMessage(bundle.tour.status, bundle.plans.length > 0);
 
   useEffect(() => {
     setSelectedPlanId(currentPlan?.id);
@@ -70,7 +76,7 @@ export function GenerationReview({
     <div className="review-layout">
       <section className="revision-column">
         <div className={`progress-card ${bundle.tour.status === "failed" ? "failed" : ""}`}>
-          {ACTIVE_STATUSES.includes(bundle.tour.status) ? (
+          {isActive ? (
             <LoaderCircle className="spin" size={21} />
           ) : bundle.tour.status === "failed" ? (
             <CircleAlert size={21} />
@@ -79,7 +85,7 @@ export function GenerationReview({
           )}
           <div>
             <strong>{STATUS_LABELS[bundle.tour.status]}</strong>
-            <span>{latestError ?? "Your plan is ready."}</span>
+            <span>{latestError ?? statusMessage}</span>
           </div>
         </div>
         <div className="conversation">
@@ -104,11 +110,17 @@ export function GenerationReview({
                 <strong>{plan.payload.narrative_arc}</strong>
                 <span>{plan.payload.checkpoints.length} checkpoints · View plan</span>
               </button>
+              {bundle.tour.approved_plan_id === plan.id && (
+                <div className="message user-message approval-message">
+                  <small>You · approval</small>
+                  <p><Check size={16} />Approved this plan</p>
+                </div>
+              )}
             </div>
           ))}
-          {ACTIVE_STATUSES.includes(bundle.tour.status) && (
+          {isActive && (
             <div className="message agent-thinking">
-              <LoaderCircle className="spin" size={16} />Generating revision…
+              {getActivityMessage(bundle.tour.status, bundle.plans.length > 0)}
             </div>
           )}
         </div>
@@ -187,12 +199,43 @@ export function GenerationReview({
           </>
         ) : (
           <div className="plan-empty">
-            <RefreshCw className="spin-slow" />
-            <h2>Generating tour plan</h2>
+            <h2>{STATUS_LABELS[bundle.tour.status]}</h2>
             <p>Checkpoints will appear when the plan is ready.</p>
           </div>
         )}
       </section>
     </div>
   );
+}
+
+function getStatusMessage(status: TourStatus, hasPlan: boolean): string {
+  switch (status) {
+    case "researching":
+      return hasPlan
+        ? "Applying your feedback to a new plan."
+        : "Finding the best stops and route.";
+    case "awaiting_review":
+      return "Review the plan, request changes, or approve it.";
+    case "writing_chapters":
+      return "Turning your approved plan into narrated chapters.";
+    case "generating_audio":
+      return "The chapters are ready; their audio is being generated.";
+    case "ready":
+      return "Your tour is ready.";
+    case "failed":
+      return "Something went wrong while creating the tour.";
+  }
+}
+
+function getActivityMessage(status: TourStatus, hasPlan: boolean): string {
+  switch (status) {
+    case "researching":
+      return hasPlan ? "Revising your tour plan…" : "Researching checkpoints…";
+    case "writing_chapters":
+      return "Writing your tour chapters…";
+    case "generating_audio":
+      return "Generating chapter audio…";
+    default:
+      return getStatusMessage(status, hasPlan);
+  }
 }

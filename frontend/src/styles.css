@@ -153,6 +153,8 @@ textarea { line-height: 1.5; resize: vertical; }
 .message small { font-size: .64rem; font-weight: 700; margin-bottom: .3rem; opacity: .65; text-transform: uppercase; }
 .message p { margin: 0; }
 .user-message { background: var(--subtle); margin-left: 2rem; }
+.approval-message p { align-items: center; display: flex; gap: .4rem; }
+.approval-message p svg { color: var(--red); }
 .agent-message { background: #fff; border: 1px solid var(--line); cursor: pointer; margin-right: 1.4rem; width: calc(100% - 1.4rem); }
 .agent-message.selected { border-color: var(--red); box-shadow: 0 5px 15px rgb(20 20 22 / 5%); }
 .agent-message strong { font-size: .95rem; line-height: 1.3; }
