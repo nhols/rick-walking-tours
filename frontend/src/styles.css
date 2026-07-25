@@ -60,6 +60,7 @@ label { color: #45534e; display: grid; font-size: .82rem; font-weight: 700; gap:
 input, textarea { background: white; border: 1px solid #d3cec4; border-radius: 10px; color: var(--ink); padding: .85rem 1rem; width: 100%; }
 textarea { line-height: 1.55; resize: vertical; }
 input:focus, textarea:focus { border-color: var(--coral); }
+.form-grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
 
 .primary-button, .secondary-button, .approve-button, .back-button, .text-button, .icon-button, .send-button {
   align-items: center; border: 0; cursor: pointer; display: inline-flex; justify-content: center;

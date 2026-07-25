@@ -1,18 +1,17 @@
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class WorkerEvent(BaseModel):
-    run_id: UUID
+    job_id: UUID
     tour_id: UUID
-    action: Literal["plan", "produce"]
+    kind: Literal["plan", "revise", "produce"]
 
 
-class GenerationRun(BaseModel):
+class TourJob(BaseModel):
     id: UUID
     tour_id: UUID
-    action: Literal["plan", "produce"]
-    plan_id: UUID | None = None
-    feedback: str | None = None
+    kind: Literal["plan", "revise", "produce"]
+    input: dict[str, Any]

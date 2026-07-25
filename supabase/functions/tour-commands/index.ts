@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface CommandResult {
   tour_id: string;
-  run_id: string;
+  job_id: string;
 }
 
 Deno.serve(async (request) => {
@@ -40,19 +40,14 @@ Deno.serve(async (request) => {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
     let result: CommandResult;
-    let workerAction: WorkerEvent["action"];
+    let workerKind: WorkerEvent["kind"];
     if (action === "create") {
       result = await command(admin, "enqueue_tour_creation", {
         p_owner_id: userData.user.id,
-        p_location: string(body.location, "location"),
-        p_request: string(body.request, "request"),
-        p_voice: optionalString(body.voice) ?? "Kore",
-        p_voice_style: optionalString(body.voice_style),
-        p_tts_model: optionalString(body.tts_model),
-        p_audio_format: optionalString(body.audio_format) ?? "wav",
+        p_input: tourInput(body),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerAction = "plan";
+      workerKind = "plan";
     } else if (action === "feedback") {
       result = await command(admin, "enqueue_tour_feedback", {
         p_owner_id: userData.user.id,
@@ -61,7 +56,7 @@ Deno.serve(async (request) => {
         p_feedback: string(body.feedback, "feedback"),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerAction = "plan";
+      workerKind = "revise";
     } else if (action === "approve") {
       result = await command(admin, "enqueue_tour_production", {
         p_owner_id: userData.user.id,
@@ -69,12 +64,12 @@ Deno.serve(async (request) => {
         p_plan_id: string(body.plan_id, "plan_id"),
         p_idempotency_key: `${userData.user.id}:${idempotencyKey}`
       });
-      workerAction = "produce";
+      workerKind = "produce";
     } else {
       return json({ error: "Unknown action" }, 400);
     }
 
-    await invokeWorker({ ...result, action: workerAction });
+    await invokeWorker({ ...result, kind: workerKind });
     return json(result, 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Command failed";
@@ -90,8 +85,8 @@ async function command(
 ): Promise<CommandResult> {
   const { data, error } = await client.rpc(name, args);
   if (error) throw error;
-  if (!data || typeof data.tour_id !== "string" || typeof data.run_id !== "string") {
-    throw new Error("Command did not return a tour and run ID");
+  if (!data || typeof data.tour_id !== "string" || typeof data.job_id !== "string") {
+    throw new Error("Command did not return a tour and job ID");
   }
   return data as CommandResult;
 }
@@ -103,6 +98,39 @@ function string(value: unknown, name: string): string {
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function number(value: unknown, name: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${name} must be a number`);
+  }
+  return value;
+}
+
+function integer(value: unknown, name: string): number {
+  const parsed = number(value, name);
+  if (!Number.isInteger(parsed)) throw new Error(`${name} must be an integer`);
+  return parsed;
+}
+
+function tourInput(body: Record<string, unknown>): Record<string, unknown> {
+  const minStops = integer(body.min_stops ?? 2, "min_stops");
+  const maxStops = integer(body.max_stops ?? 10, "max_stops");
+  if (minStops > maxStops) throw new Error("min_stops must not exceed max_stops");
+  return {
+    location: string(body.location, "location"),
+    request: string(body.request, "request"),
+    min_stops: minStops,
+    max_stops: maxStops,
+    max_checkpoint_distance_km: number(
+      body.max_checkpoint_distance_km ?? 10,
+      "max_checkpoint_distance_km"
+    ),
+    voice: optionalString(body.voice) ?? "Kore",
+    voice_style: optionalString(body.voice_style),
+    tts_model: optionalString(body.tts_model),
+    audio_format: optionalString(body.audio_format) ?? "wav"
+  };
 }
 
 function required(name: string): string {

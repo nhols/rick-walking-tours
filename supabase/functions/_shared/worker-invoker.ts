@@ -1,9 +1,9 @@
 import { InvokeCommand, LambdaClient } from "npm:@aws-sdk/client-lambda@3";
 
 export interface WorkerEvent {
-  run_id: string;
+  job_id: string;
   tour_id: string;
-  action: "plan" | "produce";
+  kind: "plan" | "revise" | "produce";
 }
 
 export async function invokeWorker(event: WorkerEvent): Promise<void> {

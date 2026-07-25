@@ -17,8 +17,9 @@ Install dependencies and create your local secrets file:
 make install
 ```
 
-Set `GOOGLE_API_KEY` and `GOOGLE_MAPS_API_KEY` in `.env`, then start the local
-stack. The first key is used for Gemini and the second for Google Maps Places:
+Set `GOOGLE_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `MAPBOX_ACCESS_TOKEN` in
+`.env`, then start the local stack. They are used for Gemini, Google Maps
+Places, and the checkpoint map shown to the planning agent:
 
 ```bash
 make up
@@ -97,7 +98,7 @@ and then loads `supabase/seed.sql`.
 ## Command flow
 
 The PWA invokes the authenticated `tour-commands` Supabase Edge Function. It
-creates an idempotent generation run and returns `202`; the PWA then polls
+creates an idempotent tour job and returns `202`; the PWA then polls
 Supabase for progress. The local worker and private Lambda share the same event
 handler and write results directly to Supabase with the service-role key.
 

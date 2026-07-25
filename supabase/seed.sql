@@ -24,7 +24,7 @@ insert into auth.users (
   extensions.crypt('password123', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}',
-  '{"display_name":"Demo Walker"}',
+  '{}',
   now(),
   now(),
   '',
@@ -64,76 +64,61 @@ insert into public.credit_transactions (
 ) on conflict (idempotency_key) do nothing;
 
 insert into public.tours (
-  id,
-  owner_id,
-  location,
-  request,
-  status,
-  narrative_arc,
-  current_plan_revision,
-  progress_message,
-  progress_current,
-  progress_total
+  id, owner_id, status, input
 ) values (
   '00000000-0000-0000-0000-000000000301',
   '00000000-0000-0000-0000-000000000001',
-  'Edinburgh',
-  'A short walk through the Old Town''s literary history',
   'awaiting_review',
-  'From medieval closes to the writers who transformed the city.',
-  1,
-  'Plan ready for review',
-  2,
-  2
+  '{
+    "location": "Edinburgh",
+    "request": "A short walk through the Old Town''s literary history",
+    "min_stops": 2,
+    "max_stops": 10,
+    "max_checkpoint_distance_km": 10,
+    "voice": "Kore",
+    "audio_format": "wav"
+  }'
+) on conflict (id) do nothing;
+
+insert into public.tour_status_events (
+  id, tour_id, status
+) values (
+  '00000000-0000-0000-0000-000000000701',
+  '00000000-0000-0000-0000-000000000301',
+  'awaiting_review'
 ) on conflict (id) do nothing;
 
 insert into public.tour_plan_revisions (
-  id, tour_id, revision, checkpoint_research, route_plan
+  id, tour_id, revision, payload
 ) values (
   '00000000-0000-0000-0000-000000000401',
   '00000000-0000-0000-0000-000000000301',
   1,
-  '{"proposals":[{"title":"Writers'' Museum","brief_description":"A compact introduction to three major Scottish writers.","distance_tool_place_name":"The Writers'' Museum, Edinburgh"},{"title":"Scott Monument","brief_description":"A dramatic memorial to Walter Scott in the heart of the city.","distance_tool_place_name":"Scott Monument, Edinburgh"}]}',
-  '{"ordered_checkpoints":[{"title":"Writers'' Museum","reasoning":"Begin with the writers and their surviving objects."},{"title":"Scott Monument","reasoning":"Finish with the city-scale legacy of Walter Scott."}],"narrative_arc":"From medieval closes to the writers who transformed the city."}'
+  '{
+    "narrative_arc": "From medieval closes to the writers who transformed the city.",
+    "checkpoints": [
+      {
+        "id": "00000000-0000-0000-0000-000000000501",
+        "position": 1,
+        "title": "Writers'' Museum",
+        "description": "A compact introduction to three major Scottish writers.",
+        "route_reasoning": "Begin with the writers and their surviving objects.",
+        "distance_tool_place_name": "The Writers'' Museum, Edinburgh",
+        "lat": 55.9496,
+        "lon": -3.1938,
+        "formatted_address": "Lady Stair''s Close, Edinburgh"
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000502",
+        "position": 2,
+        "title": "Scott Monument",
+        "description": "A dramatic memorial to Walter Scott in the heart of the city.",
+        "route_reasoning": "Finish with the city-scale legacy of Walter Scott.",
+        "distance_tool_place_name": "Scott Monument, Edinburgh",
+        "lat": 55.9524,
+        "lon": -3.1933,
+        "formatted_address": "East Princes Street Gardens, Edinburgh"
+      }
+    ]
+  }'
 ) on conflict (id) do nothing;
-
-insert into public.tour_checkpoints (
-  id,
-  tour_id,
-  plan_id,
-  position,
-  title,
-  description,
-  route_reasoning,
-  distance_tool_place_name,
-  lat,
-  lon,
-  formatted_address
-) values
-  (
-    '00000000-0000-0000-0000-000000000501',
-    '00000000-0000-0000-0000-000000000301',
-    '00000000-0000-0000-0000-000000000401',
-    1,
-    'Writers'' Museum',
-    'A compact introduction to three major Scottish writers.',
-    'Begin with the writers and their surviving objects.',
-    'The Writers'' Museum, Edinburgh',
-    55.9496,
-    -3.1938,
-    'Lady Stair''s Close, Edinburgh'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000502',
-    '00000000-0000-0000-0000-000000000301',
-    '00000000-0000-0000-0000-000000000401',
-    2,
-    'Scott Monument',
-    'A dramatic memorial to Walter Scott in the heart of the city.',
-    'Finish with the city-scale legacy of Walter Scott.',
-    'Scott Monument, Edinburgh',
-    55.9524,
-    -3.1933,
-    'East Princes Street Gardens, Edinburgh'
-  )
-on conflict (id) do nothing;

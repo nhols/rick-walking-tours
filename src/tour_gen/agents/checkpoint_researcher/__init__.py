@@ -1,8 +1,15 @@
 from dataclasses import dataclass, field
-from itertools import combinations
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext, Tool
+from pydantic_ai import (
+    Agent,
+    AgentRetries,
+    BinaryContent,
+    ModelRetry,
+    RunContext,
+    Tool,
+    ToolReturn,
+)
 from pydantic_ai.capabilities.web_search import WebSearch
 
 from tour_gen.geo.distance_matrix import (
@@ -11,6 +18,7 @@ from tour_gen.geo.distance_matrix import (
     build_crow_flies_distance_matrix_result,
 )
 from tour_gen.geo.geoencode import GeocodeResult, Geocoder, GeoPosition
+from tour_gen.geo.static_map import render_checkpoint_map
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
@@ -21,16 +29,18 @@ DISTANCE_TOOL_MAX_RETRIES = 6
 class CheckpointProposal(BaseModel):
     title: str = Field(min_length=1)
     brief_description: str = Field(min_length=1, max_length=240)
+    route_reasoning: str = Field(min_length=1, max_length=240)
     distance_tool_place_name: str = Field(min_length=1)
 
 
 class CheckpointResearchOutput(BaseModel):
-    proposals: list[CheckpointProposal] = Field(min_length=1)
+    ordered_checkpoints: list[CheckpointProposal] = Field(min_length=1)
+    narrative_arc: str = Field(min_length=1, max_length=600)
 
 
 @dataclass
 class CheckpointResearchArtifacts:
-    searched_place_pairs: set[frozenset[str]] = field(default_factory=set)
+    checked_shortlists: set[frozenset[str]] = field(default_factory=set)
     geocoded_places: dict[str, GeocodedPlace] = field(default_factory=dict)
 
 
@@ -38,7 +48,9 @@ class CheckpointResearchArtifacts:
 class CheckpointResearchDeps:
     location: str
     geocoder: Geocoder
-    max_checkpoint_distance_km: float = 5.0
+    min_stops: int = 2
+    max_stops: int = 10
+    max_checkpoint_distance_km: float = 10.0
     artifacts: CheckpointResearchArtifacts = field(default_factory=CheckpointResearchArtifacts)
     location_geocode: GeocodeResult | None = None
 
@@ -52,8 +64,8 @@ WEB_SEARCH: WebSearch[CheckpointResearchDeps] = WebSearch(
 async def estimate_place_distances(
     ctx: RunContext[CheckpointResearchDeps],
     place_names: list[str],
-) -> list[DistanceMatrixEntry]:
-    """Return one-way crow-flies distances between place names in kilometers.
+) -> ToolReturn:
+    """Map places and return their one-way crow-flies distances in kilometers.
 
     Pass the exact checkpoint names you are considering.
 
@@ -88,10 +100,23 @@ async def estimate_place_distances(
             "choose a more compact shortlist."
         )
 
-    for entry in distance_matrix_result.distances:
-        pair = frozenset((entry.from_place, entry.to_place))
-        ctx.deps.artifacts.searched_place_pairs.add(pair)
-    return distance_matrix_result.distances
+    map_image = await render_checkpoint_map(distance_matrix_result.geocoded_places)
+    ctx.deps.artifacts.checked_shortlists.add(frozenset(place_names))
+    legend = "\n".join(
+        f"{index}. {place.place_name}"
+        for index, place in enumerate(
+            distance_matrix_result.geocoded_places,
+            start=1,
+        )
+    )
+    return ToolReturn(
+        return_value=distance_matrix_result.distances,
+        content=[
+            "Map of the proposed stops. Pin labels correspond to this legend:\n"
+            f"{legend}\nUse the map and distances to choose a practical order.",
+            BinaryContent(data=map_image, media_type="image/png"),
+        ],
+    )
 
 
 checkpoint_research_agent = Agent[
@@ -107,37 +132,40 @@ checkpoint_research_agent = Agent[
     tools=[Tool(estimate_place_distances, max_retries=DISTANCE_TOOL_MAX_RETRIES)],
     capabilities=[WEB_SEARCH],
     instructions="""
-You propose walking-tour checkpoint candidates from a single user request.
+You research and plan a walking tour from the user's request.
 
 Use web search before proposing checkpoints. Look for specific, interesting,
 theme-relevant places rather than generic tourist stops. Prefer sources that
 help explain why each place belongs on this tour.
 
-Return concise proposals for real physical places a user can visit or stand
-near. For each proposal, set distance_tool_place_name to the exact place name
-you passed to estimate_place_distances for that checkpoint.
+Return an ordered list of real physical places a user can visit or stand near.
+For each checkpoint, set distance_tool_place_name to the exact place name you
+passed to estimate_place_distances, and explain briefly why it appears at that
+point in the route. Return a concise narrative arc for the full tour.
 
-Use the estimate_place_distances tool before returning final proposals. Give it
-the shortlist of exact checkpoint names you are considering. Use the returned
-crow-flies distances to avoid proposing checkpoints that are implausibly far
-apart for a walking tour, and to adapt to any user requests about walking
-distance, tour duration, compactness, or pace. Every pair of returned proposals
-must have been checked together in the distance tool. If the distance matrix
-shows very large distances, treat that as a failed geocode or an unsuitable
-checkpoint set; try more precise place names before returning final proposals.
+Use the estimate_place_distances tool with the complete final shortlist before
+returning it. Use its map and crow-flies distances to avoid implausible routes,
+choose a practical walking order, and adapt to requests about distance,
+duration, compactness, or pace. If the distance matrix shows very large
+distances, treat that as a failed geocode or unsuitable shortlist and try more
+precise place names.
 Do not return distinct checkpoint proposals if the distance matrix shows 0 km
 between them. Treat zero-distance pairs as failed geocodes and call
 estimate_place_distances again with different, more precise checkpoint names.
 
-Do not plan the route. Do not write chapter scripts. Do not generate audio. Do
-not create quizzes.
+Do not write chapter scripts. Do not generate audio. Do not create quizzes.
 """.strip(),
 )
 
 
 @checkpoint_research_agent.instructions
 def add_location_instruction(ctx: RunContext[CheckpointResearchDeps]) -> str:
-    return f"The walking tour must be researched for this location: {ctx.deps.location}"
+    return (
+        f"The walking tour must be researched for: {ctx.deps.location}. "
+        f"Return between {ctx.deps.min_stops} and {ctx.deps.max_stops} stops. "
+        "The maximum allowed crow-flies distance between any two stops is "
+        f"{ctx.deps.max_checkpoint_distance_km} km."
+    )
 
 
 @checkpoint_research_agent.output_validator
@@ -145,8 +173,17 @@ def validate_checkpoint_distances_were_checked(
     ctx: RunContext[CheckpointResearchDeps],
     output: CheckpointResearchOutput,
 ) -> CheckpointResearchOutput:
-    returned_place_names = [proposal.distance_tool_place_name for proposal in output.proposals]
-    returned_pairs = {frozenset(pair) for pair in combinations(returned_place_names, 2)}
+    checkpoints = output.ordered_checkpoints
+    if not ctx.deps.min_stops <= len(checkpoints) <= ctx.deps.max_stops:
+        raise ModelRetry(
+            "Invalid checkpoint count. "
+            f"Return between {ctx.deps.min_stops} and {ctx.deps.max_stops} "
+            f"stops; returned {len(checkpoints)}."
+        )
+
+    returned_place_names = [
+        checkpoint.distance_tool_place_name for checkpoint in checkpoints
+    ]
 
     duplicate_place_names = sorted(
         {place_name for place_name in returned_place_names if returned_place_names.count(place_name) > 1}
@@ -160,18 +197,14 @@ def validate_checkpoint_distances_were_checked(
             "searched with estimate_place_distances for each checkpoint."
         )
 
-    missing_pairs = returned_pairs - ctx.deps.artifacts.searched_place_pairs
-    if missing_pairs:
+    returned_shortlist = frozenset(returned_place_names)
+    if returned_shortlist not in ctx.deps.artifacts.checked_shortlists:
         raise ModelRetry(
             "Invalid checkpoint proposals. "
-            "Every pair of returned checkpoints must have been checked together "
-            "with estimate_place_distances before final output. "
-            f"Returned checkpoint place pairs: {_format_pairs(returned_pairs)}. "
-            f"Searched place pairs: {_format_pairs(ctx.deps.artifacts.searched_place_pairs)}. "
-            f"Missing searched pairs: {_format_pairs(missing_pairs)}. "
-            "Call estimate_place_distances with the final shortlist of place "
-            "names, then return distance_tool_place_name values that exactly "
-            "match those searched place names."
+            "The complete returned shortlist must be checked and mapped together "
+            "with estimate_place_distances before final output. Call the tool "
+            "with the final place names, then return distance_tool_place_name "
+            "values that exactly match them."
         )
 
     duplicate_coordinate_groups = _duplicate_coordinate_groups(
@@ -215,16 +248,6 @@ def _duplicate_coordinate_groups(
         for coordinate, coordinate_place_names in sorted(places_by_coordinate.items())
         if len(coordinate_place_names) > 1
     ]
-
-
-def _format_pairs(pairs: set[frozenset[str]]) -> list[tuple[str, str]]:
-    formatted_pairs: list[tuple[str, str]] = []
-    for pair in pairs:
-        if len(pair) != 2:
-            continue
-        first, second = sorted(pair)
-        formatted_pairs.append((first, second))
-    return sorted(formatted_pairs)
 
 
 def _format_distances(

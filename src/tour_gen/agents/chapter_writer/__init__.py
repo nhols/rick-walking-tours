@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext
 from pydantic_ai.capabilities.web_search import WebSearch
 
-from tour_gen.agents.checkpoint_researcher import CheckpointProposal
-from tour_gen.agents.route_planner import RoutePlanOutput
+from tour_gen.agents.checkpoint_researcher import CheckpointResearchOutput
 
 
 AGENT_MODEL = "google:gemini-3.1-flash-lite"
@@ -35,9 +34,8 @@ class ChapterWriterOutput(BaseModel):
 
 @dataclass
 class ChapterWriterDeps:
-    route_plan: RoutePlanOutput
+    plan: CheckpointResearchOutput
     location: str
-    checkpoints: list[CheckpointProposal]
     voice_style: str | None = None
 
 
@@ -105,17 +103,16 @@ chapter_writer_agent = Agent[
 
 
 @chapter_writer_agent.instructions
-def add_route_plan_instruction(ctx: RunContext[ChapterWriterDeps]) -> str:
-    checkpoints = {checkpoint.title: checkpoint for checkpoint in ctx.deps.checkpoints}
+def add_plan_instruction(ctx: RunContext[ChapterWriterDeps]) -> str:
     checkpoint_lines = [
-        f"- {ordered.title}: {checkpoints[ordered.title].brief_description}\n"
-        f"  Exact place: {checkpoints[ordered.title].distance_tool_place_name}\n"
-        f"  Route reasoning: {ordered.reasoning}"
-        for ordered in ctx.deps.route_plan.ordered_checkpoints
+        f"- {checkpoint.title}: {checkpoint.brief_description}\n"
+        f"  Exact place: {checkpoint.distance_tool_place_name}\n"
+        f"  Route reasoning: {checkpoint.route_reasoning}"
+        for checkpoint in ctx.deps.plan.ordered_checkpoints
     ]
     instructions = (
         f"Tour location: {ctx.deps.location}\n"
-        f"Narrative arc: {ctx.deps.route_plan.narrative_arc}\n"
+        f"Narrative arc: {ctx.deps.plan.narrative_arc}\n"
         "Ordered checkpoints:\n" + "\n".join(checkpoint_lines)
     )
     if ctx.deps.voice_style:
@@ -136,7 +133,9 @@ def validate_chapters(
             f"Model returned {title_word_count} words: {output.tour_title!r}."
         )
 
-    expected_titles = [checkpoint.title for checkpoint in ctx.deps.route_plan.ordered_checkpoints]
+    expected_titles = [
+        checkpoint.title for checkpoint in ctx.deps.plan.ordered_checkpoints
+    ]
     returned_titles = [chapter.title for chapter in output.chapters]
 
     if Counter(returned_titles) != Counter(expected_titles):

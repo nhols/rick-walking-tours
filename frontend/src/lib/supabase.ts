@@ -1,11 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import type {
   Chapter,
-  Checkpoint,
   PlanWithCheckpoints,
   Tour,
   TourBundle,
-  TourPlan
+  TourPlan,
+  TourStatusEvent
 } from "../types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -27,54 +27,54 @@ export async function loadTours(): Promise<Tour[]> {
 }
 
 export async function loadTourBundle(tourId: string): Promise<TourBundle> {
-  const [tourResult, plansResult, checkpointsResult, chaptersResult] =
-    await Promise.all([
-      supabase.from("tours").select("*").eq("id", tourId).single(),
-      supabase
-        .from("tour_plan_revisions")
-        .select(
-          "id,tour_id,revision,route_plan,parent_plan_id,feedback,created_at"
-        )
-        .eq("tour_id", tourId)
-        .order("revision"),
-      supabase
-        .from("tour_checkpoints")
-        .select("*")
-        .eq("tour_id", tourId)
-        .order("position"),
-      supabase
-        .from("tour_chapters")
-        .select("*")
-        .eq("tour_id", tourId)
-        .order("position")
-    ]);
+  const [tourResult, plansResult, outputResult, eventsResult] = await Promise.all([
+    supabase.from("tours").select("*").eq("id", tourId).single(),
+    supabase
+      .from("tour_plan_revisions")
+      .select("id,tour_id,revision,feedback,payload,created_at")
+      .eq("tour_id", tourId)
+      .order("revision"),
+    supabase
+      .from("tour_outputs")
+      .select("payload")
+      .eq("tour_id", tourId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("tour_status_events")
+      .select("*")
+      .eq("tour_id", tourId)
+      .order("created_at")
+  ]);
 
   const error =
-    tourResult.error ??
-    plansResult.error ??
-    checkpointsResult.error ??
-    chaptersResult.error;
+    tourResult.error ?? plansResult.error ?? outputResult.error ?? eventsResult.error;
   if (error) throw error;
 
-  const checkpoints = (checkpointsResult.data ?? []) as Checkpoint[];
-  const plans = ((plansResult.data ?? []) as TourPlan[]).map(
+  const plans = ((plansResult.data ?? []) as unknown as TourPlan[]).map(
     (plan): PlanWithCheckpoints => ({
-      ...plan,
-      checkpoints: checkpoints.filter((item) => item.plan_id === plan.id)
+      id: plan.id,
+      tour_id: plan.tour_id,
+      revision: plan.revision,
+      feedback: plan.feedback,
+      created_at: plan.created_at,
+      narrative_arc: plan.payload.narrative_arc,
+      checkpoints: plan.payload.checkpoints
     })
   );
+  const payload = outputResult.data?.payload as { chapters?: Chapter[] } | undefined;
 
   return {
     tour: tourResult.data as Tour,
     plans,
-    chapters: (chaptersResult.data ?? []) as Chapter[]
+    chapters: payload?.chapters ?? [],
+    statusEvents: (eventsResult.data ?? []) as TourStatusEvent[]
   };
 }
 
 export async function loadCreditBalance(): Promise<number> {
-  const { data, error } = await supabase
-    .from("credit_transactions")
-    .select("delta");
+  const { data, error } = await supabase.from("credit_transactions").select("delta");
   if (error) throw error;
   return (data ?? []).reduce((sum, row) => sum + Number(row.delta), 0);
 }

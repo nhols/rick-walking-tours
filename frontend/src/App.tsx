@@ -42,14 +42,12 @@ import type {
 
 const ACTIVE_STATUSES: TourStatus[] = [
   "researching",
-  "planning_route",
   "writing_chapters",
   "generating_audio"
 ];
 
 const STATUS_LABELS: Record<TourStatus, string> = {
   researching: "Researching checkpoints",
-  planning_route: "Planning the route",
   awaiting_review: "Awaiting your review",
   writing_chapters: "Writing chapters",
   generating_audio: "Generating audio",
@@ -61,11 +59,23 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    let active = true;
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const sessionIsValid = !data.session || !(await supabase.auth.getUser()).error;
+      if (!sessionIsValid) {
+        await supabase.auth.signOut({ scope: "local" });
+      }
+      if (active) setSession(sessionIsValid ? data.session : null);
+    })();
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "INITIAL_SESSION") return;
       setSession(nextSession);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   if (session === undefined) {
@@ -396,7 +406,7 @@ function TourSection({
       {tours.map((tour) => {
         const isDownloaded = downloadedIds.has(tour.id);
         const isDownloading = downloadingIds.has(tour.id);
-        const tourName = tour.title ?? tour.location;
+        const tourName = tour.title ?? tour.input.location;
         return (
           <div
             className={`tour-row ${selectedId === tour.id ? "selected" : ""}`}
@@ -465,6 +475,9 @@ function CreateTourDialog({
 }) {
   const [location, setLocation] = useState("");
   const [request, setRequest] = useState("");
+  const [minStops, setMinStops] = useState(2);
+  const [maxStops, setMaxStops] = useState(10);
+  const [maxDistanceKm, setMaxDistanceKm] = useState(10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -473,7 +486,13 @@ function CreateTourDialog({
     setBusy(true);
     setError(null);
     try {
-      const command = await workerCommand<CommandAccepted>("create", { location, request });
+      const command = await workerCommand<CommandAccepted>("create", {
+        location,
+        request,
+        min_stops: minStops,
+        max_stops: maxStops,
+        max_checkpoint_distance_km: maxDistanceKm
+      });
       onCreated(command.tour_id);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not create tour");
@@ -493,6 +512,42 @@ function CreateTourDialog({
         <label>
           What are you interested in?
           <textarea placeholder="A literary walk with hidden stories, around 45 minutes…" value={request} onChange={(event) => setRequest(event.target.value)} required rows={5} />
+        </label>
+        <div className="form-grid">
+          <label>
+            Minimum stops
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={minStops}
+              onChange={(event) => setMinStops(event.currentTarget.valueAsNumber)}
+              required
+            />
+          </label>
+          <label>
+            Maximum stops
+            <input
+              type="number"
+              min={minStops}
+              max={20}
+              value={maxStops}
+              onChange={(event) => setMaxStops(event.currentTarget.valueAsNumber)}
+              required
+            />
+          </label>
+        </div>
+        <label>
+          Maximum distance between any two stops (km)
+          <input
+            type="number"
+            min={0.1}
+            max={100}
+            step="any"
+            value={maxDistanceKm}
+            onChange={(event) => setMaxDistanceKm(event.currentTarget.valueAsNumber)}
+            required
+          />
         </label>
         {error && <p className="form-message">{error}</p>}
         {busy && <p className="working-note"><LoaderCircle className="spin" size={17} />Researching and planning your first route…</p>}
@@ -522,7 +577,7 @@ function TourDetail({
           <ArrowLeft size={21} />
         </button>
         <div className="detail-title">
-          <p className="eyebrow">{bundle.tour.location}</p>
+          <p className="eyebrow">{bundle.tour.input.location}</p>
           <h1>{bundle.tour.title ?? "Tour in progress"}</h1>
         </div>
       </header>
@@ -610,6 +665,7 @@ function GenerationReview({
   const [error, setError] = useState<string | null>(null);
   const selectedPlan = bundle.plans.find((plan) => plan.id === selectedPlanId) ?? currentPlan;
   const canReview = bundle.tour.status === "awaiting_review" && currentPlan;
+  const latestError = bundle.statusEvents.at(-1)?.details?.error;
 
   useEffect(() => {
     setSelectedPlanId(currentPlan?.id);
@@ -660,18 +716,17 @@ function GenerationReview({
           {ACTIVE_STATUSES.includes(bundle.tour.status) ? <LoaderCircle className="spin" size={21} /> : bundle.tour.status === "failed" ? <CircleAlert size={21} /> : <MessageCircle size={21} />}
           <div>
             <strong>{STATUS_LABELS[bundle.tour.status]}</strong>
-            <span>{bundle.tour.error_message ?? bundle.tour.progress_message ?? "Your plan is ready."}</span>
+            <span>{latestError ?? "Your plan is ready."}</span>
           </div>
-          {bundle.tour.progress_total && <span className="progress-count">{bundle.tour.progress_current ?? 0}/{bundle.tour.progress_total}</span>}
         </div>
         <div className="conversation">
-          <div className="message user-message"><small>You</small><p>{bundle.tour.request}</p></div>
+          <div className="message user-message"><small>You</small><p>{bundle.tour.input.request}</p></div>
           {bundle.plans.map((plan) => (
             <div className="revision-thread" key={plan.id}>
               {plan.feedback && <div className="message user-message"><small>You · feedback</small><p>{plan.feedback}</p></div>}
               <button className={`message agent-message ${selectedPlan?.id === plan.id ? "selected" : ""}`} onClick={() => { setSelectedPlanId(plan.id); setSelectedCheckpointId(plan.checkpoints[0]?.id); }}>
                 <small>Rick · revision {plan.revision}</small>
-                <strong>{plan.route_plan.narrative_arc ?? bundle.tour.narrative_arc ?? "A new route"}</strong>
+                <strong>{plan.narrative_arc}</strong>
                 <span>{plan.checkpoints.length} checkpoints · View plan</span>
               </button>
             </div>
@@ -701,7 +756,7 @@ function GenerationReview({
             <div className="plan-map"><CheckpointMap checkpoints={selectedPlan.checkpoints} selectedId={selectedCheckpointId} onSelect={setSelectedCheckpointId} /></div>
             <div className="plan-summary">
               <p className="section-label">Revision {selectedPlan.revision} · chapter briefs</p>
-              <h2>{selectedPlan.route_plan.narrative_arc ?? "Proposed route"}</h2>
+              <h2>{selectedPlan.narrative_arc}</h2>
               <div className="brief-list">
                 {selectedPlan.checkpoints.map((checkpoint) => (
                   <button className={selectedCheckpointId === checkpoint.id ? "active" : ""} key={checkpoint.id} onClick={() => setSelectedCheckpointId(checkpoint.id)}>

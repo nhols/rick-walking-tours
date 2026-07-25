@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from supabase import Client
 
 from tour_gen.backend.artifacts import SupabaseArtifactStore
@@ -13,57 +15,30 @@ from tour_gen.backend.service import (
 )
 from tour_gen.geo.geoencode.google_maps import GoogleMapsGeocoder
 from tour_gen.tts.gemini import GeminiTTSProvider
-from tour_worker.models import GenerationRun, WorkerEvent
+from tour_worker.models import TourJob, WorkerEvent
 
 
 async def process_event(event: WorkerEvent, *, client: Client | None = None) -> None:
     supabase = client or create_supabase_client_from_env()
-    run_data = supabase.rpc(
-        "claim_generation_run",
-        {"p_run_id": str(event.run_id)},
+    data = supabase.rpc(
+        "claim_tour_job", {"p_job_id": str(event.job_id)}
     ).execute().data
-    if run_data is None:
+    if data is None:
         return
 
-    run = GenerationRun.model_validate(run_data)
-    if run.tour_id != event.tour_id or run.action != event.action:
-        error = "Worker event does not match its canonical generation run"
-        _fail_run(supabase, event, error)
-        raise ValueError(error)
+    job = TourJob.model_validate(data)
+    if job.tour_id != event.tour_id or job.kind != event.kind:
+        _fail_job(supabase, event.job_id)
+        raise ValueError("Worker event does not match its canonical job")
 
     repository = SupabaseTourRepository(supabase)
-    tour = repository.get_tour(run.tour_id)
+    tour = repository.get_tour(job.tour_id)
     if tour is None:
-        error = "Tour not found for generation run"
-        _fail_run(supabase, event, error)
-        raise ValueError(error)
+        _fail_job(supabase, event.job_id)
+        raise ValueError("Tour not found for job")
 
     try:
-        if run.action == "produce":
-            if run.plan_id is None:
-                raise ValueError("Production run has no plan")
-            await approve_and_produce_tour(
-                repository,
-                tour.owner_id,
-                tour.id,
-                run.plan_id,
-                runner=AgentPipeline(),
-                tts_provider=GeminiTTSProvider(),
-                artifact_store=SupabaseArtifactStore(supabase),
-            )
-        elif run.plan_id is not None:
-            if run.feedback is None:
-                raise ValueError("Revision run has no feedback")
-            await revise_tour_plan(
-                repository,
-                tour.owner_id,
-                tour.id,
-                run.plan_id,
-                run.feedback,
-                runner=AgentPipeline(),
-                geocoder=GoogleMapsGeocoder(),
-            )
-        else:
+        if job.kind == "plan":
             await plan_existing_tour(
                 repository,
                 tour.owner_id,
@@ -71,21 +46,32 @@ async def process_event(event: WorkerEvent, *, client: Client | None = None) -> 
                 runner=AgentPipeline(),
                 geocoder=GoogleMapsGeocoder(),
             )
-    except Exception as error:
-        _fail_run(supabase, event, str(error))
+        elif job.kind == "revise":
+            await revise_tour_plan(
+                repository,
+                tour.owner_id,
+                tour.id,
+                UUID(str(job.input["plan_id"])),
+                str(job.input["feedback"]),
+                runner=AgentPipeline(),
+                geocoder=GoogleMapsGeocoder(),
+            )
+        else:
+            await approve_and_produce_tour(
+                repository,
+                tour.owner_id,
+                tour.id,
+                UUID(str(job.input["plan_id"])),
+                runner=AgentPipeline(),
+                tts_provider=GeminiTTSProvider(),
+                artifact_store=SupabaseArtifactStore(supabase),
+            )
+    except Exception:
+        _fail_job(supabase, event.job_id)
         raise
 
-    supabase.rpc(
-        "complete_generation_run",
-        {"p_run_id": str(event.run_id)},
-    ).execute()
+    supabase.rpc("complete_tour_job", {"p_job_id": str(event.job_id)}).execute()
 
 
-def _fail_run(client: Client, event: WorkerEvent, message: str) -> None:
-    client.rpc(
-        "fail_generation_run",
-        {
-            "p_run_id": str(event.run_id),
-            "p_error_message": message or "Worker failed",
-        },
-    ).execute()
+def _fail_job(client: Client, job_id: UUID) -> None:
+    client.rpc("fail_tour_job", {"p_job_id": str(job_id)}).execute()

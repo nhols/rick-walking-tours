@@ -10,8 +10,8 @@ from supabase import Client
 from tour_gen.backend.artifacts import ArtifactStore, SupabaseArtifactStore
 from tour_gen.backend.models import (
     TourApproval,
-    TourCreate,
     TourFeedback,
+    TourInput,
     TourRead,
     TourSummary,
 )
@@ -77,7 +77,7 @@ def create_app(
         status_code=status.HTTP_201_CREATED,
     )
     async def create_tour(
-        payload: TourCreate,
+        payload: TourInput,
         request: Request,
         repository: TourRepository = Depends(get_repository),
         owner_id: UUID = Depends(get_owner_id),
@@ -196,14 +196,11 @@ def create_app(
         tour = repository.get_tour(tour_id, owner_id)
         if tour is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        output = repository.get_output(tour_id, tour.approved_plan_id)
         chapter = next(
-            (
-                item
-                for item in repository.get_chapters(tour_id, tour.approved_plan_id)
-                if item.position == position
-            ),
+            (item for item in output.payload.chapters if item.position == position),
             None,
-        )
+        ) if output else None
         if chapter is None or chapter.audio_path is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return RedirectResponse(artifact_store.create_signed_url(chapter.audio_path))

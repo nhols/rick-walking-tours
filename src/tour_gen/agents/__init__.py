@@ -2,7 +2,7 @@ from tour_gen.agents.chapter_writer import (
     Chapter,
     ChapterWriterDeps,
     ChapterWriterOutput,
-    add_route_plan_instruction,
+    add_plan_instruction,
     chapter_writer_agent,
     validate_chapters,
 )
@@ -18,20 +18,12 @@ from tour_gen.agents.checkpoint_researcher import (
 )
 from tour_gen.geo.distance_matrix import DistanceMatrixEntry
 from tour_gen.geo.geoencode import GeocodeResult, Geocoder
-from tour_gen.agents.route_planner import (
-    OrderedCheckpoint,
-    RoutePlanOutput,
-    RoutePlannerDeps,
-    add_selected_checkpoints_instruction,
-    route_planner_agent,
-    validate_route_plan,
-)
 
 __all__ = [
     "Chapter",
     "ChapterWriterDeps",
     "ChapterWriterOutput",
-    "add_route_plan_instruction",
+    "add_plan_instruction",
     "chapter_writer_agent",
     "validate_chapters",
     "CheckpointProposal",
@@ -45,10 +37,4 @@ __all__ = [
     "checkpoint_research_agent",
     "estimate_place_distances",
     "validate_checkpoint_distances_were_checked",
-    "OrderedCheckpoint",
-    "RoutePlanOutput",
-    "RoutePlannerDeps",
-    "add_selected_checkpoints_instruction",
-    "route_planner_agent",
-    "validate_route_plan",
 ]

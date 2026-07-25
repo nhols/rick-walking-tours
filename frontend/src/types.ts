@@ -1,45 +1,36 @@
 export type TourStatus =
   | "researching"
-  | "planning_route"
   | "awaiting_review"
   | "writing_chapters"
   | "generating_audio"
   | "ready"
   | "failed";
 
+export interface TourInput {
+  location: string;
+  request: string;
+  min_stops: number;
+  max_stops: number;
+  max_checkpoint_distance_km: number;
+  voice: string;
+  voice_style?: string | null;
+  tts_model?: string | null;
+  audio_format: string;
+}
+
 export interface Tour {
   id: string;
   owner_id: string;
-  location: string;
-  request: string;
   status: TourStatus;
   title: string | null;
-  narrative_arc: string | null;
-  voice: string;
-  current_plan_revision: number;
+  input: TourInput;
   approved_plan_id: string | null;
-  progress_message: string | null;
-  progress_current: number | null;
-  progress_total: number | null;
-  error_message: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface TourPlan {
-  id: string;
-  tour_id: string;
-  revision: number;
-  route_plan: { narrative_arc?: string };
-  parent_plan_id: string | null;
-  feedback: string | null;
-  created_at: string;
-}
-
 export interface Checkpoint {
   id: string;
-  tour_id: string;
-  plan_id: string;
   position: number;
   title: string;
   description: string;
@@ -50,28 +41,48 @@ export interface Checkpoint {
   formatted_address: string | null;
 }
 
-export interface Chapter {
+export interface PlanPayload {
+  narrative_arc: string;
+  checkpoints: Checkpoint[];
+}
+
+export interface TourPlan {
   id: string;
   tour_id: string;
-  plan_id: string;
+  revision: number;
+  feedback: string | null;
+  payload: PlanPayload;
+  created_at: string;
+}
+
+export interface PlanWithCheckpoints extends Omit<TourPlan, "payload"> {
+  narrative_arc: string;
+  checkpoints: Checkpoint[];
+}
+
+export interface Chapter {
+  id: string;
   checkpoint_id: string;
   position: number;
   title: string;
   narration: string;
-  status: "written" | "ready";
   audio_path: string | null;
-  media_type: string | null;
   duration_seconds: number | null;
 }
 
-export interface PlanWithCheckpoints extends TourPlan {
-  checkpoints: Checkpoint[];
+export interface TourStatusEvent {
+  id: string;
+  tour_id: string;
+  status: TourStatus;
+  details: { error?: string } | null;
+  created_at: string;
 }
 
 export interface TourBundle {
   tour: Tour;
   plans: PlanWithCheckpoints[];
   chapters: Chapter[];
+  statusEvents: TourStatusEvent[];
 }
 
 export interface DownloadedTour {
