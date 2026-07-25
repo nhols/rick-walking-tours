@@ -1,4 +1,5 @@
 import { openDB, type DBSchema } from "idb";
+import { loadTourBundle, supabase } from "./supabase";
 import type { DownloadedTour, TourBundle } from "../types";
 
 interface RickOfflineDB extends DBSchema {
@@ -15,10 +16,15 @@ interface RickOfflineDB extends DBSchema {
   };
 }
 
-const database = openDB<RickOfflineDB>("rick-offline", 1, {
-  upgrade(db) {
-    db.createObjectStore("tours", { keyPath: "tourId" });
-    db.createObjectStore("audio", { keyPath: "chapterId" });
+const database = openDB<RickOfflineDB>("rick-offline", 2, {
+  upgrade(db, oldVersion, _newVersion, transaction) {
+    if (oldVersion === 0) {
+      db.createObjectStore("tours", { keyPath: "tourId" });
+      db.createObjectStore("audio", { keyPath: "chapterId" });
+      return;
+    }
+    transaction.objectStore("tours").clear();
+    transaction.objectStore("audio").clear();
   }
 });
 
@@ -26,25 +32,32 @@ export async function getDownloadedTours(): Promise<DownloadedTour[]> {
   return (await database).getAll("tours");
 }
 
-export async function getDownloadedTour(
+export async function downloadTourForOffline(
   tourId: string
-): Promise<DownloadedTour | undefined> {
-  return (await database).get("tours", tourId);
-}
+): Promise<DownloadedTour> {
+  const bundle = await loadTourBundle(tourId);
+  const audio: { chapterId: string; blob: Blob }[] = [];
+  for (const chapter of bundle.chapters) {
+    if (!chapter.audio_path) continue;
+    const { data, error } = await supabase.storage
+      .from("tour-audio")
+      .download(chapter.audio_path);
+    if (error) throw error;
+    audio.push({ chapterId: chapter.id, blob: data });
+  }
 
-export async function saveDownloadedTour(bundle: TourBundle): Promise<void> {
-  await (await database).put("tours", {
+  const downloaded = {
     tourId: bundle.tour.id,
-    bundle,
-    savedAt: new Date().toISOString()
-  });
-}
-
-export async function saveChapterAudio(
-  chapterId: string,
-  blob: Blob
-): Promise<void> {
-  await (await database).put("audio", { chapterId, blob });
+    bundle
+  };
+  const db = await database;
+  const transaction = db.transaction(["tours", "audio"], "readwrite");
+  await Promise.all([
+    transaction.objectStore("tours").put(downloaded),
+    ...audio.map((item) => transaction.objectStore("audio").put(item))
+  ]);
+  await transaction.done;
+  return downloaded;
 }
 
 export async function getChapterAudio(

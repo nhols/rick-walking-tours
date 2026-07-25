@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { getChapterAudio } from "../lib/offline";
+import { useOnlineStatus } from "../lib/online";
 import { supabase } from "../lib/supabase";
 import type { Chapter } from "../types";
 
 export function ChapterAudio({ chapter }: { chapter: Chapter }) {
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const online = useOnlineStatus();
   const chapterId = chapter.id;
   const audioPath = chapter.audio_path;
 
@@ -18,11 +20,20 @@ export function ChapterAudio({ chapter }: { chapter: Chapter }) {
     async function loadAudio() {
       const downloaded = await getChapterAudio(chapterId);
       if (downloaded) {
-        objectUrl = URL.createObjectURL(downloaded);
-        if (!cancelled) setSource(objectUrl);
+        const url = URL.createObjectURL(downloaded);
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+        } else {
+          objectUrl = url;
+          setSource(url);
+        }
         return;
       }
-      if (!navigator.onLine || !audioPath) {
+      if (!audioPath) {
+        if (!cancelled) setError("Audio unavailable.");
+        return;
+      }
+      if (!online) {
         if (!cancelled) setError("Download this tour before listening offline.");
         return;
       }
@@ -43,7 +54,7 @@ export function ChapterAudio({ chapter }: { chapter: Chapter }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [chapterId, audioPath]);
+  }, [chapterId, audioPath, online]);
 
   if (error) return <p className="inline-notice">{error}</p>;
   if (!source) return <div className="audio-skeleton">Loading audio…</div>;

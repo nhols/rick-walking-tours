@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type {
   Chapter,
-  PlanWithCheckpoints,
   Tour,
   TourBundle,
   TourPlan,
@@ -20,18 +19,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function loadTours(): Promise<Tour[]> {
   const { data, error } = await supabase
     .from("tours")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select("id,status,title,input,approved_plan_id,updated_at")
+    .order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Tour[];
 }
 
 export async function loadTourBundle(tourId: string): Promise<TourBundle> {
   const [tourResult, plansResult, outputResult, eventsResult] = await Promise.all([
-    supabase.from("tours").select("*").eq("id", tourId).single(),
+    supabase
+      .from("tours")
+      .select("id,status,title,input,approved_plan_id,updated_at")
+      .eq("id", tourId)
+      .single(),
     supabase
       .from("tour_plan_revisions")
-      .select("id,tour_id,revision,feedback,payload,created_at")
+      .select("id,revision,feedback,payload")
       .eq("tour_id", tourId)
       .order("revision"),
     supabase
@@ -43,7 +46,7 @@ export async function loadTourBundle(tourId: string): Promise<TourBundle> {
       .maybeSingle(),
     supabase
       .from("tour_status_events")
-      .select("*")
+      .select("details")
       .eq("tour_id", tourId)
       .order("created_at")
   ]);
@@ -52,22 +55,11 @@ export async function loadTourBundle(tourId: string): Promise<TourBundle> {
     tourResult.error ?? plansResult.error ?? outputResult.error ?? eventsResult.error;
   if (error) throw error;
 
-  const plans = ((plansResult.data ?? []) as unknown as TourPlan[]).map(
-    (plan): PlanWithCheckpoints => ({
-      id: plan.id,
-      tour_id: plan.tour_id,
-      revision: plan.revision,
-      feedback: plan.feedback,
-      created_at: plan.created_at,
-      narrative_arc: plan.payload.narrative_arc,
-      checkpoints: plan.payload.checkpoints
-    })
-  );
   const payload = outputResult.data?.payload as { chapters?: Chapter[] } | undefined;
 
   return {
     tour: tourResult.data as Tour,
-    plans,
+    plans: (plansResult.data ?? []) as TourPlan[],
     chapters: payload?.chapters ?? [],
     statusEvents: (eventsResult.data ?? []) as TourStatusEvent[]
   };

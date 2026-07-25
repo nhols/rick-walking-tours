@@ -1,15 +1,46 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
-export interface CommandAccepted {
+interface CommandAccepted {
   tour_id: string;
   job_id: string;
 }
 
-export async function workerCommand<T>(
+export interface CreateTourRequest {
+  location: string;
+  request: string;
+  min_stops: number;
+  max_stops: number;
+  max_checkpoint_distance_km: number;
+}
+
+export function createTour(body: CreateTourRequest): Promise<CommandAccepted> {
+  return workerCommand("create", body);
+}
+
+export function reviseTour(
+  tourId: string,
+  planId: string,
+  feedback: string
+): Promise<CommandAccepted> {
+  return workerCommand("feedback", {
+    tour_id: tourId,
+    plan_id: planId,
+    feedback
+  });
+}
+
+export function approveTour(
+  tourId: string,
+  planId: string
+): Promise<CommandAccepted> {
+  return workerCommand("approve", { tour_id: tourId, plan_id: planId });
+}
+
+async function workerCommand(
   action: "create" | "feedback" | "approve",
-  body: Record<string, unknown>
-): Promise<T> {
+  body: object
+): Promise<CommandAccepted> {
   const { data, error } = await supabase.functions.invoke("tour-commands", {
     body: {
       action,
@@ -24,5 +55,12 @@ export async function workerCommand<T>(
     throw new Error(typeof payload?.error === "string" ? payload.error : error.message);
   }
   if (error) throw error;
-  return data as T;
+  if (
+    !data ||
+    typeof data.tour_id !== "string" ||
+    typeof data.job_id !== "string"
+  ) {
+    throw new Error("Tour command returned an invalid response");
+  }
+  return data;
 }

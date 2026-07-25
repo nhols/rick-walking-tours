@@ -6,26 +6,32 @@ export type TourStatus =
   | "ready"
   | "failed";
 
+export const ACTIVE_STATUSES: TourStatus[] = [
+  "researching",
+  "writing_chapters",
+  "generating_audio"
+];
+
+export const STATUS_LABELS: Record<TourStatus, string> = {
+  researching: "Researching checkpoints",
+  awaiting_review: "Awaiting your review",
+  writing_chapters: "Writing chapters",
+  generating_audio: "Generating audio",
+  ready: "Ready to walk",
+  failed: "Needs attention"
+};
+
 export interface TourInput {
   location: string;
   request: string;
-  min_stops: number;
-  max_stops: number;
-  max_checkpoint_distance_km: number;
-  voice: string;
-  voice_style?: string | null;
-  tts_model?: string | null;
-  audio_format: string;
 }
 
 export interface Tour {
   id: string;
-  owner_id: string;
   status: TourStatus;
   title: string | null;
   input: TourInput;
   approved_plan_id: string | null;
-  created_at: string;
   updated_at: string;
 }
 
@@ -34,8 +40,6 @@ export interface Checkpoint {
   position: number;
   title: string;
   description: string;
-  route_reasoning: string;
-  distance_tool_place_name: string;
   lat: number;
   lon: number;
   formatted_address: string | null;
@@ -48,16 +52,9 @@ export interface PlanPayload {
 
 export interface TourPlan {
   id: string;
-  tour_id: string;
   revision: number;
   feedback: string | null;
   payload: PlanPayload;
-  created_at: string;
-}
-
-export interface PlanWithCheckpoints extends Omit<TourPlan, "payload"> {
-  narrative_arc: string;
-  checkpoints: Checkpoint[];
 }
 
 export interface Chapter {
@@ -67,20 +64,15 @@ export interface Chapter {
   title: string;
   narration: string;
   audio_path: string | null;
-  duration_seconds: number | null;
 }
 
 export interface TourStatusEvent {
-  id: string;
-  tour_id: string;
-  status: TourStatus;
   details: { error?: string } | null;
-  created_at: string;
 }
 
 export interface TourBundle {
   tour: Tour;
-  plans: PlanWithCheckpoints[];
+  plans: TourPlan[];
   chapters: Chapter[];
   statusEvents: TourStatusEvent[];
 }
@@ -88,5 +80,4 @@ export interface TourBundle {
 export interface DownloadedTour {
   tourId: string;
   bundle: TourBundle;
-  savedAt: string;
 }

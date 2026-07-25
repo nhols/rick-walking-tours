@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
+import { useOnlineStatus } from "../lib/online";
 import type { Checkpoint } from "../types";
 
 interface CheckpointMapProps {
@@ -8,11 +9,12 @@ interface CheckpointMapProps {
   onSelect: (checkpointId: string) => void;
 }
 
-export function CheckpointMap({
+export default function CheckpointMap({
   checkpoints,
   selectedId,
   onSelect
 }: CheckpointMapProps) {
+  const online = useOnlineStatus();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -33,13 +35,13 @@ export function CheckpointMap({
   const selectedLongitude = selectedCheckpoint?.lon;
 
   useEffect(() => {
-    if (!containerRef.current || checkpoints.length === 0 || !navigator.onLine) {
+    if (!containerRef.current || checkpoints.length === 0 || !online) {
       return;
     }
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: "https://tiles.openfreemap.org/styles/liberty",
+      style: "https://tiles.openfreemap.org/styles/bright",
       center: [checkpoints[0].lon, checkpoints[0].lat],
       zoom: 14,
       attributionControl: false
@@ -94,7 +96,7 @@ export function CheckpointMap({
         type: "line",
         source: "route",
         paint: {
-          "line-color": "#d9573f",
+          "line-color": "#e6323b",
           "line-width": 4,
           "line-opacity": 0.8
         }
@@ -109,7 +111,7 @@ export function CheckpointMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [checkpointSignature]);
+  }, [checkpointSignature, online]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -128,7 +130,7 @@ export function CheckpointMap({
     }
   }, [selectedId, selectedLatitude, selectedLongitude]);
 
-  if (!navigator.onLine) {
+  if (!online) {
     return (
       <div className="map-offline">
         <span>Map unavailable offline</span>

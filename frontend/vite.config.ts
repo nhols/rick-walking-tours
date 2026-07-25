@@ -7,21 +7,31 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["rick-mark.svg"],
+      includeAssets: ["rick-mark.svg", "rick-mark-180.png"],
       manifest: {
         name: "Rick Walking Tours",
         short_name: "Rick",
         description: "Create and listen to self-guided walking tours.",
-        theme_color: "#f4f0e8",
-        background_color: "#f4f0e8",
+        theme_color: "#e6323b",
+        background_color: "#ffffff",
         display: "standalone",
         start_url: "/",
         icons: [
           {
+            src: "/rick-mark-192.png",
+            sizes: "192x192",
+            type: "image/png"
+          },
+          {
+            src: "/rick-mark-512.png",
+            sizes: "512x512",
+            type: "image/png"
+          },
+          {
             src: "/rick-mark.svg",
             sizes: "any",
             type: "image/svg+xml",
-            purpose: "any maskable"
+            purpose: "maskable"
           }
         ]
       },
