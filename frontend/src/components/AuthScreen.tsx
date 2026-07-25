@@ -6,7 +6,6 @@ import { supabase } from "../lib/supabase";
 export function AuthScreen() {
   const [email, setEmail] = useState(import.meta.env.DEV ? "demo@rick.local" : "");
   const [password, setPassword] = useState(import.meta.env.DEV ? "password123" : "");
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -15,14 +14,9 @@ export function AuthScreen() {
     setBusy(true);
     setMessage(null);
     try {
-      const result =
-        mode === "login"
-          ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({ email, password });
+      const result = await supabase.auth.signInWithPassword({ email, password });
       if (result.error) {
         setMessage(result.error.message);
-      } else if (mode === "signup" && !result.data.session) {
-        setMessage("Check your email to confirm your account, then sign in.");
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed");
@@ -39,8 +33,8 @@ export function AuthScreen() {
           <span>Rick</span>
         </div>
         <header>
-          <h1>{mode === "login" ? "Sign in" : "Create an account"}</h1>
-          <p>{mode === "login" ? "Manage your walking tours." : "Create and save walking tours."}</p>
+          <h1>Sign in</h1>
+          <p>Manage your walking tours.</p>
         </header>
           <label>
             Email
@@ -58,7 +52,7 @@ export function AuthScreen() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               minLength={6}
               required
             />
@@ -66,20 +60,9 @@ export function AuthScreen() {
           {message && <p className="form-message">{message}</p>}
           <button className="primary-button wide" disabled={busy}>
             {busy && <LoaderCircle className="spin" size={18} />}
-            {mode === "login" ? "Sign in" : "Create account"}
+            Sign in
           </button>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setMode(mode === "login" ? "signup" : "login");
-              setMessage(null);
-            }}
-          >
-            {mode === "login"
-              ? "New here? Create an account"
-              : "Already have an account? Sign in"}
-          </button>
+          <p className="form-message">Rick is currently invite-only.</p>
       </form>
     </main>
   );
