@@ -10,12 +10,9 @@ import {
   Sparkles
 } from "lucide-react";
 import { useOnlineStatus } from "../lib/online";
-import {
-  loadCreditBalance,
-  loadOwnedTours,
-  loadPublicTours,
-  supabase
-} from "../lib/supabase";
+import { loadCreditBalance } from "../lib/credits";
+import { supabase } from "../lib/supabase";
+import { loadOwnedTours, loadPublicTours } from "../lib/tours";
 import { ACTIVE_STATUSES, type Tour } from "../types";
 import { CreateTourDialog } from "./CreateTourDialog";
 import { TourDetail } from "./TourDetail";

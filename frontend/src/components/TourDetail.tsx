@@ -10,7 +10,7 @@ import {
   Star
 } from "lucide-react";
 import { useOnlineStatus } from "../lib/online";
-import { loadTourBundle, setTourPublic } from "../lib/supabase";
+import { loadTourBundle, setTourPublic } from "../lib/tours";
 import { ACTIVE_STATUSES, type TourBundle } from "../types";
 import { GenerationReview } from "./GenerationReview";
 import { ReadyTour } from "./ReadyTour";

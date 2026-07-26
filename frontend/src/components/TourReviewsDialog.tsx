@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Star, Trash2, X } from "lucide-react";
-import { deleteTourReview, saveTourReview } from "../lib/supabase";
+import { deleteTourReview, saveTourReview } from "../lib/reviews";
 import type { TourBundle } from "../types";
 
 interface TourReviewsDialogProps {
