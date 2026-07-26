@@ -157,7 +157,7 @@ textarea { line-height: 1.5; resize: vertical; }
 .approval-message p svg { color: var(--red); }
 .agent-message { background: #fff; border: 1px solid var(--line); cursor: pointer; margin-right: 1.4rem; width: calc(100% - 1.4rem); }
 .agent-message.selected { border-color: var(--red); box-shadow: 0 5px 15px rgb(20 20 22 / 5%); }
-.agent-message strong { font-size: .95rem; line-height: 1.3; }
+.agent-message .narrative-summary { color: var(--ink); font-size: .8rem; line-height: 1.45; margin: 0; }
 .agent-message span { color: var(--red); font-size: .69rem; margin-top: .45rem; }
 .agent-thinking { align-items: center; background: var(--red-soft); color: var(--red-dark); display: flex; gap: .5rem; margin-right: 5rem; }
 .feedback-form { border-top: 1px solid var(--line); padding: 1rem 1.4rem 1.3rem; }
@@ -171,7 +171,7 @@ textarea { line-height: 1.5; resize: vertical; }
 .plan-map { min-height: 0; padding: .75rem; }
 .plan-map .checkpoint-map { min-height: 0; }
 .plan-summary { background: #fff; border-top: 1px solid var(--line); overflow-y: auto; padding: 1.3rem 1.5rem; }
-.plan-summary h2 { font-size: 1.35rem; margin-bottom: 1rem; }
+.plan-summary > .narrative-summary { color: #45454a; font-size: .9rem; line-height: 1.5; margin: 0 0 1rem; max-width: 72ch; }
 .brief-list { display: grid; gap: .4rem; }
 .brief-list button { align-items: flex-start; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; display: flex; gap: .7rem; padding: .6rem; text-align: left; width: 100%; }
 .brief-list button:hover, .brief-list button.active { background: var(--subtle); border-color: var(--line); }

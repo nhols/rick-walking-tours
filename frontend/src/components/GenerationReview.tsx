@@ -107,7 +107,7 @@ export function GenerationReview({
                 }}
               >
                 <small>Tour plan · revision {plan.revision}</small>
-                <strong>{plan.payload.narrative_arc}</strong>
+                <p className="narrative-summary">{plan.payload.narrative_arc}</p>
                 <span>{plan.payload.checkpoints.length} checkpoints · View plan</span>
               </button>
               {bundle.tour.approved_plan_id === plan.id && (
@@ -179,7 +179,7 @@ export function GenerationReview({
               <p className="section-label">
                 Revision {selectedPlan.revision} · chapter briefs
               </p>
-              <h2>{selectedPlan.payload.narrative_arc}</h2>
+              <p className="narrative-summary">{selectedPlan.payload.narrative_arc}</p>
               <div className="brief-list">
                 {selectedPlan.payload.checkpoints.map((checkpoint) => (
                   <button
