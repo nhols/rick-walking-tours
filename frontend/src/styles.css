@@ -155,11 +155,21 @@ textarea { line-height: 1.5; resize: vertical; }
 .agent-message span { color: var(--red); font-size: .69rem; margin-top: .45rem; }
 .agent-thinking { align-items: center; background: var(--red-soft); color: var(--red-dark); display: flex; gap: .5rem; margin-right: 5rem; }
 .feedback-form { border-top: 1px solid var(--line); padding: 1rem 1.4rem 1.3rem; }
-.feedback-form label { margin-bottom: .45rem; }
+.review-decision-heading { color: var(--ink); font-size: .88rem; font-weight: 750; margin-bottom: .85rem; }
+.review-action-heading { align-items: flex-start; display: flex; gap: .65rem; }
+.review-action-heading > div { flex: 1; }
+.review-action-heading label, .review-action-heading strong { color: var(--ink); display: block; font-size: .82rem; font-weight: 750; line-height: 1.3; margin: 0; }
+.review-action-heading p { color: var(--muted); font-size: .69rem; line-height: 1.4; margin: .15rem 0 .65rem; }
+.review-action-icon { align-items: center; background: var(--subtle); border: 1px solid var(--line); border-radius: 50%; color: var(--muted); display: flex; flex: 0 0 auto; height: 24px; justify-content: center; width: 24px; }
 .feedback-input { display: flex; position: relative; }
-.feedback-input textarea { padding-right: 3.3rem; }
-.send-button { background: var(--red); border-radius: 7px; bottom: .55rem; color: #fff; height: 34px; position: absolute; right: .55rem; width: 34px; }
-.approve-button { background: var(--red); border-radius: 8px; color: #fff; font-size: .8rem; font-weight: 700; gap: .5rem; margin-top: .7rem; min-height: 42px; width: 100%; }
+.feedback-input textarea { padding-bottom: 3.4rem; }
+.send-button { background: var(--red); border-radius: 7px; bottom: .55rem; color: #fff; font-size: .7rem; font-weight: 700; gap: .4rem; min-height: 34px; padding: .45rem .7rem; position: absolute; right: .55rem; }
+.review-choice { align-items: center; color: var(--muted); display: flex; font-size: .64rem; font-weight: 700; gap: .55rem; margin: .8rem 0; text-transform: uppercase; }
+.review-choice::before, .review-choice::after { background: var(--line); content: ""; flex: 1; height: 1px; }
+.review-approval-action { background: var(--red-soft); border: 1px solid rgb(230 50 59 / 18%); border-radius: 10px; padding: .8rem; }
+.review-approval-action .review-action-icon { background: #fff; border-color: rgb(230 50 59 / 22%); color: var(--red); }
+.approve-button { background: var(--red); border-radius: 8px; color: #fff; font-size: .8rem; font-weight: 700; gap: .5rem; min-height: 42px; width: 100%; }
+.approve-button > span { border-left: 1px solid rgb(255 255 255 / 35%); font-size: .67rem; margin-left: auto; padding-left: .65rem; }
 .form-message.padded { margin: 0 1.4rem 1rem; }
 .plan-column { display: grid; grid-template-rows: minmax(380px, 1.45fr) minmax(220px, .55fr); min-height: 0; }
 .plan-map { min-height: 0; padding: .75rem; }
@@ -181,6 +191,15 @@ textarea { line-height: 1.5; resize: vertical; }
 .dialog { background: #fff; border-radius: 14px; box-shadow: var(--shadow); max-width: 560px; padding: 2rem; width: 100%; }
 .dialog h2 { font-size: 1.65rem; margin-bottom: 1.8rem; }
 .dialog-actions { display: flex; gap: .7rem; justify-content: flex-end; margin-top: 1.5rem; }
+.confirmation-dialog { max-width: 480px; }
+.confirmation-dialog h2 { margin: 1rem 0 .55rem; }
+.confirmation-dialog > p:not(.form-message) { color: var(--muted); font-size: .9rem; line-height: 1.55; margin-bottom: 1.25rem; }
+.confirmation-icon { align-items: center; background: var(--red-soft); border-radius: 12px; color: var(--red); display: flex; height: 48px; justify-content: center; width: 48px; }
+.credit-warning { align-items: center; background: #fff8e8; border: 1px solid #f0d691; border-radius: 10px; color: #76510a; display: flex; gap: .75rem; padding: .9rem; }
+.credit-warning > svg { flex: 0 0 auto; }
+.credit-warning > div { display: grid; gap: .15rem; }
+.credit-warning strong { font-size: .82rem; }
+.credit-warning span { font-size: .72rem; }
 .working-note { align-items: center; color: var(--red); display: flex; font-size: .78rem; gap: .5rem; }
 .full-loader { align-items: center; color: var(--muted); display: flex; gap: .65rem; height: 100%; justify-content: center; min-height: 300px; }
 .detail-error { height: calc(100% - 82px); }
@@ -216,6 +235,8 @@ textarea { line-height: 1.5; resize: vertical; }
   .plan-map { height: 42vh; padding: .7rem; }
   .plan-summary { overflow: visible; padding-bottom: 5rem; }
   .dialog { max-height: 94vh; overflow-y: auto; }
+  .confirmation-dialog .dialog-actions { flex-direction: column-reverse; }
+  .confirmation-dialog .dialog-actions button { width: 100%; }
 }
 
 @media (display-mode: standalone) { .sidebar, .detail-header { padding-top: max(1rem, env(safe-area-inset-top)); } }

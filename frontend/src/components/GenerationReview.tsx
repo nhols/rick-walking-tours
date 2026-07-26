@@ -2,6 +2,7 @@ import { lazy, useEffect, useState, type FormEvent } from "react";
 import {
   Check,
   CircleAlert,
+  Coins,
   LoaderCircle,
   MessageCircle,
   Send
@@ -29,6 +30,7 @@ export function GenerationReview({
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<string>();
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState<"approve" | "feedback" | null>(null);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedPlan =
     bundle.plans.find((plan) => plan.id === selectedPlanId) ?? currentPlan;
@@ -42,12 +44,24 @@ export function GenerationReview({
     setSelectedCheckpointId(currentPlan?.payload.checkpoints[0]?.id);
   }, [currentPlan?.id]);
 
+  useEffect(() => {
+    if (!showApprovalDialog) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) setShowApprovalDialog(false);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showApprovalDialog, busy]);
+
   async function approve() {
     if (!currentPlan) return;
     setBusy("approve");
     setError(null);
     try {
       await approveTour(bundle.tour.id, currentPlan.id);
+      setShowApprovalDialog(false);
       await onChanged();
     } catch (approveError) {
       setError(approveError instanceof Error ? approveError.message : "Approval failed");
@@ -73,8 +87,9 @@ export function GenerationReview({
   }
 
   return (
-    <div className="review-layout">
-      <section className="revision-column">
+    <>
+      <div className="review-layout">
+        <section className="revision-column">
         <div className={`progress-card ${bundle.tour.status === "failed" ? "failed" : ""}`}>
           {isActive ? (
             <LoaderCircle className="spin" size={21} />
@@ -126,46 +141,65 @@ export function GenerationReview({
         </div>
         {canReview && (
           <form className="feedback-form" onSubmit={submitFeedback}>
-            <label htmlFor="feedback">What should change?</label>
-            <div className="feedback-input">
-              <textarea
-                id="feedback"
-                rows={3}
-                placeholder="Add a stop about industrial history…"
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-                disabled={Boolean(busy)}
-              />
+            <p className="review-decision-heading">Choose what happens next</p>
+            <div className="review-action review-feedback-action">
+              <div className="review-action-heading">
+                <span className="review-action-icon"><MessageCircle size={14} /></span>
+                <div>
+                  <label htmlFor="feedback">Request changes</label>
+                  <p>Tell us what to revise and we’ll update the plan.</p>
+                </div>
+              </div>
+              <div className="feedback-input">
+                <textarea
+                  id="feedback"
+                  rows={3}
+                  placeholder="Add a stop about industrial history…"
+                  value={feedback}
+                  onChange={(event) => setFeedback(event.target.value)}
+                  disabled={Boolean(busy)}
+                />
+                <button
+                  className="send-button"
+                  disabled={!feedback.trim() || Boolean(busy)}
+                >
+                  {busy === "feedback" ? (
+                    <LoaderCircle className="spin" size={18} />
+                  ) : (
+                    <Send size={18} />
+                  )}
+                  Send feedback
+                </button>
+              </div>
+            </div>
+            <div className="review-choice" aria-hidden="true"><span>or</span></div>
+            <div className="review-action review-approval-action">
+              <div className="review-action-heading">
+                <span className="review-action-icon"><Check size={14} /></span>
+                <div>
+                  <strong>Approve the tour</strong>
+                  <p>Happy with the plan? Approve it to create the full tour.</p>
+                </div>
+              </div>
               <button
-                className="send-button"
-                disabled={!feedback.trim() || Boolean(busy)}
-                title="Send feedback"
+                className="approve-button"
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setShowApprovalDialog(true);
+                }}
+                disabled={Boolean(busy)}
               >
-                {busy === "feedback" ? (
-                  <LoaderCircle className="spin" size={18} />
-                ) : (
-                  <Send size={18} />
-                )}
+                <Check size={18} />
+                Approve tour
+                <span>1 credit</span>
               </button>
             </div>
-            <button
-              className="approve-button"
-              type="button"
-              onClick={() => void approve()}
-              disabled={Boolean(busy)}
-            >
-              {busy === "approve" ? (
-                <LoaderCircle className="spin" size={18} />
-              ) : (
-                <Check size={18} />
-              )}
-              Approve this plan and create tour
-            </button>
           </form>
         )}
         {error && <p className="form-message padded">{error}</p>}
-      </section>
-      <section className="plan-column">
+        </section>
+        <section className="plan-column">
         {selectedPlan ? (
           <>
             <div className="plan-map">
@@ -203,8 +237,63 @@ export function GenerationReview({
             <p>Checkpoints will appear when the plan is ready.</p>
           </div>
         )}
-      </section>
-    </div>
+        </section>
+      </div>
+      {showApprovalDialog && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && !busy && setShowApprovalDialog(false)
+          }
+        >
+          <form
+            className="dialog confirmation-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approval-dialog-title"
+            aria-describedby="approval-dialog-description"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void approve();
+            }}
+          >
+            <div className="confirmation-icon"><Coins size={24} /></div>
+            <h2 id="approval-dialog-title">Approve and create this tour?</h2>
+            <p id="approval-dialog-description">
+              This will approve the current plan and start creating your full tour.
+            </p>
+            <div className="credit-warning">
+              <Coins size={20} />
+              <div>
+                <strong>This action uses 1 credit</strong>
+                <span>The credit will be used when you confirm.</span>
+              </div>
+            </div>
+            {error && <p className="form-message">{error}</p>}
+            <div className="dialog-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setShowApprovalDialog(false)}
+                disabled={Boolean(busy)}
+                autoFocus
+              >
+                Keep reviewing
+              </button>
+              <button className="primary-button" disabled={Boolean(busy)}>
+                {busy === "approve" ? (
+                  <LoaderCircle className="spin" size={18} />
+                ) : (
+                  <Check size={18} />
+                )}
+                Yes, approve · 1 credit
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   );
 }
 
