@@ -1,10 +1,7 @@
 import {
-  Check,
   ChevronRight,
-  Download,
   LoaderCircle,
-  MapPin,
-  Trash2
+  MapPin
 } from "lucide-react";
 import { STATUS_LABELS, type Tour } from "../types";
 
@@ -14,11 +11,7 @@ interface TourListProps {
   loading: boolean;
   online: boolean;
   selectedId: string | null;
-  downloadedIds: Set<string>;
-  downloadingIds: Set<string>;
   onSelect: (id: string) => void;
-  onDownload: (id: string) => void;
-  onRemoveDownload: (id: string) => void;
 }
 
 export function TourList(props: TourListProps) {
@@ -33,7 +26,7 @@ export function TourList(props: TourListProps) {
     return (
       <div className="empty-list">
         <MapPin size={24} /><p>No tours yet.</p>
-        <small>{props.online ? "Create one to begin." : "No downloaded tours."}</small>
+        <small>{props.online ? "Create one to begin." : "Tours require an internet connection."}</small>
       </div>
     );
   }
@@ -57,19 +50,13 @@ function TourSection({
   title,
   tours,
   selectedId,
-  downloadedIds,
-  downloadingIds,
-  onSelect,
-  onDownload,
-  onRemoveDownload
+  onSelect
 }: TourListProps & { title: string }) {
   if (tours.length === 0) return null;
   return (
     <section className="tour-section">
       <p className="section-label">{title}</p>
       {tours.map((tour) => {
-        const isDownloaded = downloadedIds.has(tour.id);
-        const isDownloading = downloadingIds.has(tour.id);
         const tourName = tour.title ?? tour.input.location;
         return (
           <div
@@ -84,41 +71,6 @@ function TourSection({
               </span>
               <ChevronRight size={17} />
             </button>
-            {tour.status === "ready" && (
-              <button
-                className={`tour-download-button ${isDownloaded ? "is-downloaded" : ""}`}
-                type="button"
-                aria-label={
-                  isDownloaded
-                    ? `${tourName} downloaded`
-                    : isDownloading
-                      ? `Downloading ${tourName}`
-                      : `Download ${tourName} for offline listening`
-                }
-                title={
-                  isDownloaded
-                    ? "Remove offline download"
-                    : isDownloading
-                      ? "Downloading…"
-                      : "Download for offline listening"
-                }
-                disabled={isDownloading}
-                onClick={() =>
-                  isDownloaded ? onRemoveDownload(tour.id) : onDownload(tour.id)
-                }
-              >
-                {isDownloading ? (
-                  <LoaderCircle className="spin" size={18} />
-                ) : isDownloaded ? (
-                  <span className="downloaded-state-icons">
-                    <Check size={18} />
-                    <Trash2 className="remove-download" size={17} />
-                  </span>
-                ) : (
-                  <Download size={18} />
-                )}
-              </button>
-            )}
           </div>
         );
       })}

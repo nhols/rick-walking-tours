@@ -134,7 +134,7 @@ export default function CheckpointMap({
     return (
       <div className="map-offline">
         <span>Map unavailable offline</span>
-        <small>Your checkpoints and audio are still available.</small>
+        <small>Reconnect to continue this tour.</small>
       </div>
     );
   }

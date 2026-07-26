@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
 import { useOnlineStatus } from "../lib/online";
 import { loadTourBundle } from "../lib/supabase";
@@ -8,14 +8,12 @@ import { ReadyTour } from "./ReadyTour";
 
 interface TourDetailProps {
   tourId: string;
-  downloadedBundle?: TourBundle;
   onBack: () => void;
   onChanged: () => Promise<void>;
 }
 
 export function TourDetail({
   tourId,
-  downloadedBundle,
   onBack,
   onChanged
 }: TourDetailProps) {
@@ -23,26 +21,31 @@ export function TourDetail({
   const [bundle, setBundle] = useState<TourBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     if (!online) {
-      setBundle(downloadedBundle ?? null);
-      setError(downloadedBundle ? null : "This tour has not been downloaded.");
+      setBundle(null);
+      setError("Tours require an internet connection.");
       setLoading(false);
       return;
     }
     try {
-      setBundle(await loadTourBundle(tourId));
+      const nextBundle = await loadTourBundle(tourId);
+      if (sequence !== refreshSequence.current) return;
+      setBundle(nextBundle);
       setError(null);
     } catch (loadError) {
-      setBundle(downloadedBundle ?? null);
+      if (sequence !== refreshSequence.current) return;
+      setBundle(null);
       setError(
         loadError instanceof Error ? loadError.message : "Could not load this tour"
       );
     } finally {
-      setLoading(false);
+      if (sequence === refreshSequence.current) setLoading(false);
     }
-  }, [downloadedBundle, online, tourId]);
+  }, [online, tourId]);
 
   useEffect(() => {
     setLoading(true);

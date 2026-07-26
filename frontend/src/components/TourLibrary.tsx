@@ -7,18 +7,9 @@ import {
   Plus,
   Sparkles
 } from "lucide-react";
-import {
-  downloadTourForOffline,
-  getDownloadedTours,
-  removeDownloadedTour
-} from "../lib/offline";
 import { useOnlineStatus } from "../lib/online";
 import { loadCreditBalance, loadTours, supabase } from "../lib/supabase";
-import {
-  ACTIVE_STATUSES,
-  type DownloadedTour,
-  type Tour
-} from "../types";
+import { ACTIVE_STATUSES, type Tour } from "../types";
 import { CreateTourDialog } from "./CreateTourDialog";
 import { TourDetail } from "./TourDetail";
 import { TourList } from "./TourList";
@@ -26,17 +17,13 @@ import { TourList } from "./TourList";
 export function TourLibrary({ session }: { session: Session }) {
   const online = useOnlineStatus();
   const [tours, setTours] = useState<Tour[]>([]);
-  const [downloaded, setDownloaded] = useState<DownloadedTour[]>([]);
   const [credits, setCredits] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
     new URLSearchParams(window.location.hash.slice(1)).get("tour")
   );
-  const [downloadsLoaded, setDownloadsLoaded] = useState(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
 
   const refreshTours = useCallback(async () => {
     try {
@@ -59,17 +46,6 @@ export function TourLibrary({ session }: { session: Session }) {
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Could not load tours");
     }
-  }, []);
-
-  useEffect(() => {
-    void getDownloadedTours()
-      .then(setDownloaded)
-      .catch((error: unknown) => {
-        setDownloadError(
-          error instanceof Error ? error.message : "Could not load downloads"
-        );
-      })
-      .finally(() => setDownloadsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -96,7 +72,7 @@ export function TourLibrary({ session }: { session: Session }) {
     return () => window.removeEventListener("focus", handleFocus);
   }, [online, refreshTours]);
 
-  const visibleTours = mergeTours(online ? tours : [], downloaded);
+  const visibleTours = online ? tours : [];
 
   function selectTour(tourId: string | null) {
     setSelectedId(tourId);
@@ -108,46 +84,6 @@ export function TourLibrary({ session }: { session: Session }) {
     );
   }
 
-  async function downloadTour(tourId: string) {
-    if (
-      downloadingIds.has(tourId) ||
-      downloaded.some((item) => item.tourId === tourId)
-    ) {
-      return;
-    }
-    setDownloadError(null);
-    setDownloadingIds((current) => new Set(current).add(tourId));
-    try {
-      const nextDownload = await downloadTourForOffline(tourId);
-      setDownloaded((current) => [
-        ...current.filter((item) => item.tourId !== tourId),
-        nextDownload
-      ]);
-    } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : "Download failed");
-    } finally {
-      setDownloadingIds((current) => {
-        const next = new Set(current);
-        next.delete(tourId);
-        return next;
-      });
-    }
-  }
-
-  async function deleteDownload(tourId: string) {
-    setDownloadError(null);
-    try {
-      await removeDownloadedTour(tourId);
-      setDownloaded((current) => current.filter((item) => item.tourId !== tourId));
-    } catch (error) {
-      setDownloadError(
-        error instanceof Error ? error.message : "Could not remove download"
-      );
-    }
-  }
-
-  const downloadedIds = new Set(downloaded.map((item) => item.tourId));
-  const selectedDownload = downloaded.find((item) => item.tourId === selectedId);
   return (
     <main className="app-shell">
       <aside className={`sidebar ${selectedId ? "has-selection" : ""}`}>
@@ -175,22 +111,18 @@ export function TourLibrary({ session }: { session: Session }) {
         >
           <Plus size={18} /> New tour
         </button>
-        {(downloadError ?? loadError) && (
+        {loadError && (
           <div className="error-banner">
-            <CircleAlert size={17} />{downloadError ?? loadError}
+            <CircleAlert size={17} />{loadError}
           </div>
         )}
         <div className="tour-list">
           <TourList
             tours={visibleTours}
-            loading={!downloadsLoaded || !libraryLoaded}
+            loading={!libraryLoaded}
             online={online}
             selectedId={selectedId}
-            downloadedIds={downloadedIds}
-            downloadingIds={downloadingIds}
             onSelect={selectTour}
-            onDownload={(tourId) => void downloadTour(tourId)}
-            onRemoveDownload={(tourId) => void deleteDownload(tourId)}
           />
         </div>
         <footer className="sidebar-footer">
@@ -204,7 +136,6 @@ export function TourLibrary({ session }: { session: Session }) {
           <TourDetail
             key={selectedId}
             tourId={selectedId}
-            downloadedBundle={selectedDownload?.bundle}
             onBack={() => selectTour(null)}
             onChanged={refreshTours}
           />
@@ -225,16 +156,6 @@ export function TourLibrary({ session }: { session: Session }) {
       )}
     </main>
   );
-}
-
-function mergeTours(tours: Tour[], downloaded: DownloadedTour[]) {
-  const merged = [...tours];
-  for (const item of downloaded) {
-    if (!merged.some((tour) => tour.id === item.tourId)) {
-      merged.push(item.bundle.tour);
-    }
-  }
-  return merged.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
 function WelcomePanel({ onCreate }: { onCreate: () => void }) {

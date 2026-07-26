@@ -76,8 +76,3 @@ export interface TourBundle {
   chapters: Chapter[];
   statusEvents: TourStatusEvent[];
 }
-
-export interface DownloadedTour {
-  tourId: string;
-  bundle: TourBundle;
-}
