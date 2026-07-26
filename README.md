@@ -98,6 +98,30 @@ npm run supabase:reset
 `supabase db reset` rebuilds the local database from every committed migration
 and then loads `supabase/seed.sql`.
 
+## Production deployment
+
+Production deploys run locally from a clean `master` checkout using the values
+in the git-ignored `.env` file:
+
+```bash
+make deploy
+```
+
+The command runs the test suite, applies pending Supabase migrations, builds
+and deploys the Lambda image and SAM stack, deploys the Supabase Edge Function,
+and publishes the frontend to Cloudflare Pages. Each component can also be
+deployed independently:
+
+```bash
+make deploy-db
+make deploy-worker
+make deploy-edge
+make deploy-frontend
+```
+
+The production defaults can be overridden as Make variables, for example
+`make deploy AWS_REGION=eu-west-1 AWS_STACK_NAME=rick-production`.
+
 ## Command flow
 
 The PWA invokes the authenticated `tour-commands` Supabase Edge Function. It
