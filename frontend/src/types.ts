@@ -28,11 +28,15 @@ export interface TourInput {
 
 export interface Tour {
   id: string;
+  owner_id: string;
   status: TourStatus;
   title: string | null;
   input: TourInput;
   approved_plan_id: string | null;
+  is_public: boolean;
   updated_at: string;
+  average_rating?: number | null;
+  review_count?: number;
 }
 
 export interface Checkpoint {
@@ -70,9 +74,20 @@ export interface TourStatusEvent {
   details: { error?: string } | null;
 }
 
+export interface TourReview {
+  id: string;
+  tour_id: string;
+  user_id: string;
+  rating: number;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TourBundle {
   tour: Tour;
   plans: TourPlan[];
   chapters: Chapter[];
   statusEvents: TourStatusEvent[];
+  reviews: TourReview[];
 }

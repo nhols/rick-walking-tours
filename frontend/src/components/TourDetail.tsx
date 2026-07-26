@@ -1,19 +1,31 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
+import PublicIcon from "@mui/icons-material/Public";
+import PublicOffIcon from "@mui/icons-material/PublicOff";
+import {
+  ArrowLeft,
+  CircleAlert,
+  LoaderCircle,
+  RefreshCw,
+  Share2,
+  Star
+} from "lucide-react";
 import { useOnlineStatus } from "../lib/online";
-import { loadTourBundle } from "../lib/supabase";
+import { loadTourBundle, setTourPublic } from "../lib/supabase";
 import { ACTIVE_STATUSES, type TourBundle } from "../types";
 import { GenerationReview } from "./GenerationReview";
 import { ReadyTour } from "./ReadyTour";
+import { TourReviewsDialog } from "./TourReviewsDialog";
 
 interface TourDetailProps {
   tourId: string;
+  viewerId: string;
   onBack: () => void;
   onChanged: () => Promise<void>;
 }
 
 export function TourDetail({
   tourId,
+  viewerId,
   onBack,
   onChanged
 }: TourDetailProps) {
@@ -21,6 +33,10 @@ export function TourDetail({
   const [bundle, setBundle] = useState<TourBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
   const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -67,6 +83,48 @@ export function TourDetail({
 
   const tour = bundle?.tour;
   const isReady = tour?.status === "ready";
+  const isOwner = tour?.owner_id === viewerId;
+  const averageRating = bundle?.reviews.length
+    ? bundle.reviews.reduce((sum, review) => sum + review.rating, 0) /
+      bundle.reviews.length
+    : null;
+
+  async function setVisibility(isPublic: boolean) {
+    if (!tour) return;
+    setVisibilitySaving(true);
+    setActionError(null);
+    try {
+      await setTourPublic(tour.id, isPublic);
+      await Promise.all([onChanged(), refresh()]);
+    } catch (visibilityError) {
+      setActionError(
+        visibilityError instanceof Error
+          ? visibilityError.message
+          : "Could not change tour visibility"
+      );
+    } finally {
+      setVisibilitySaving(false);
+    }
+  }
+
+  async function shareTour() {
+    if (!tour) return;
+    const shareData = {
+      title: tour.title ?? tour.input.location,
+      url: window.location.href
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+      }
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === "AbortError") return;
+      setActionError("Could not share this tour.");
+    }
+  }
+
   return (
     <div className={`detail-page ${isReady ? "is-ready" : ""}`}>
       <header className="detail-header">
@@ -86,6 +144,50 @@ export function TourDetail({
               (loading ? "Loading tour" : "Tour unavailable")}
           </h1>
         </div>
+        {tour && isReady && (
+          <div className="detail-actions">
+            {isOwner && (
+              <button
+                className={`icon-button ${tour.is_public ? "active" : ""}`}
+                onClick={() => {
+                  if (tour.is_public) {
+                    void setVisibility(false);
+                  } else {
+                    setShowPublishConfirm(true);
+                  }
+                }}
+                disabled={visibilitySaving}
+                aria-label={tour.is_public ? "Make tour private" : "Publish tour"}
+                title={tour.is_public ? "Make private" : "Publish"}
+              >
+                {tour.is_public ? (
+                  <PublicIcon fontSize="small" />
+                ) : (
+                  <PublicOffIcon fontSize="small" />
+                )}
+              </button>
+            )}
+            <button
+              className="icon-button rating-button"
+              onClick={() => setShowReviews(true)}
+              aria-label="Open ratings and reviews"
+              title="Ratings and reviews"
+            >
+              <Star size={18} fill={averageRating ? "currentColor" : "none"} />
+              {averageRating && <span>{averageRating.toFixed(1)}</span>}
+            </button>
+            {tour.is_public && (
+              <button
+                className="icon-button"
+                onClick={() => void shareTour()}
+                aria-label="Share tour"
+                title="Share"
+              >
+                <Share2 size={18} />
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {loading && !bundle ? (
@@ -103,7 +205,11 @@ export function TourDetail({
         </div>
       ) : (
         <>
-          {error && <div className="detail-warning"><CircleAlert size={17} />{error}</div>}
+          {(error || actionError) && (
+            <div className="detail-warning">
+              <CircleAlert size={17} />{actionError ?? error}
+            </div>
+          )}
           <Suspense fallback={<PageLoader />}>
             {isReady ? (
               <ReadyTour bundle={bundle} />
@@ -117,6 +223,52 @@ export function TourDetail({
             )}
           </Suspense>
         </>
+      )}
+      {bundle && showReviews && (
+        <TourReviewsDialog
+          bundle={bundle}
+          viewerId={viewerId}
+          onClose={() => setShowReviews(false)}
+          onChanged={async () => {
+            await Promise.all([onChanged(), refresh()]);
+          }}
+        />
+      )}
+      {tour && showPublishConfirm && (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            className="dialog confirmation-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="publish-title"
+          >
+            <span className="confirmation-icon"><PublicIcon /></span>
+            <h2 id="publish-title">Make this tour public?</h2>
+            <p>
+              All users will be able to find, open, share,
+              rate, and review this tour. You can make it private again at any time.
+            </p>
+            <div className="dialog-actions">
+              <button
+                className="secondary-button"
+                onClick={() => setShowPublishConfirm(false)}
+                disabled={visibilitySaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setShowPublishConfirm(false);
+                  void setVisibility(true);
+                }}
+                disabled={visibilitySaving}
+              >
+                Make public
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

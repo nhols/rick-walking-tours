@@ -54,12 +54,18 @@ Local URLs:
 - Local Lambda endpoint: `http://127.0.0.1:3001`
 - PWA: `http://127.0.0.1:5173`
 
-Local demo login:
+Local demo logins:
 
 ```text
 demo@rick.local
 password123
+
+reviewer@rick.local
+password123
 ```
+
+Use the reviewer account to browse public tours and see reviews from a
+different user's perspective. It intentionally has no generation credits.
 
 The seed also creates three credits and one Edinburgh tour awaiting review.
 
