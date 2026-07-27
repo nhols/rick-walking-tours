@@ -141,10 +141,6 @@ export function TourLibrary({ session }: { session: Session }) {
             publicMode={view === "public"}
           />
         </div>
-        <footer className="sidebar-footer">
-          <span className={`connection-dot ${online ? "online" : ""}`} />
-          {online ? session.user.email : "Offline mode"}
-        </footer>
         <nav className="home-nav" aria-label="Tour collections">
           <button
             className={view === "library" ? "active" : ""}
@@ -163,6 +159,10 @@ export function TourLibrary({ session }: { session: Session }) {
             <Compass size={22} />
           </button>
         </nav>
+        <footer className="sidebar-footer">
+          <span className={`connection-dot ${online ? "online" : ""}`} />
+          {online ? session.user.email : "Offline mode"}
+        </footer>
       </aside>
 
       <section className={`content ${selectedId ? "has-selection" : ""}`}>
