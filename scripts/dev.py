@@ -50,6 +50,11 @@ def main() -> None:
         check=True,
         stdout=subprocess.DEVNULL,
     )
+    subprocess.run(
+        ["npx", "supabase", "migration", "up", "--local"],
+        cwd=PROJECT_ROOT,
+        check=True,
+    )
     status_output = subprocess.check_output(
         ["npx", "supabase", "status", "-o", "env"],
         cwd=PROJECT_ROOT,

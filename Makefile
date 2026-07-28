@@ -18,7 +18,8 @@ install: .env
 up:
 	npm run dev
 
-dev: up
+dev: down
+	$(MAKE) up
 
 down:
 	npm run supabase:stop
