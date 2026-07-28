@@ -20,8 +20,8 @@ make install
 
 Set `GOOGLE_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`, and
 `MAPBOX_ACCESS_TOKEN` in `.env`, then start the local stack. They are used for
-Gemini, Google Maps Places, Logfire tracing, and the checkpoint map shown to
-the planning agent:
+Gemini, Google Maps Places, Logfire tracing, the checkpoint map shown to the
+planning agent, and stored Mapbox walking routes:
 
 ```bash
 make up
@@ -34,18 +34,18 @@ make down
 ```
 
 Other useful commands are `make status`, `make test`, `make build`, and
-`make grant-credits EMAIL=user@example.com AMOUNT=5`. `make dev` is an alias
-for `make up`.
+`make grant-credits EMAIL=user@example.com AMOUNT=5`. `make dev` restarts the
+local Supabase stack before running `make up`.
 
 `scripts/dev.py` supplies the local Supabase URL and publishable key to Vite.
 For a standalone frontend build or deployment, set the two variables listed
 in `frontend/.env.example` in the hosting environment.
 
 This builds the Lambda image and starts local Supabase, the SAM Lambda emulator,
-and the PWA together. The browser always sends commands through the Edge
-Function, which uses the AWS SDK to invoke the same image and handler locally
-and in production. Restart `make up` after changing Python code so the image is
-rebuilt.
+applies any pending local database migrations, and starts the PWA together. The
+browser always sends commands through the Edge Function, which uses the AWS SDK
+to invoke the same image and handler locally and in production. Restart
+`make up` after changing Python code so the image is rebuilt.
 
 Local URLs:
 

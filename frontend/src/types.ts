@@ -49,9 +49,34 @@ export interface Checkpoint {
   formatted_address: string | null;
 }
 
+export interface GeoPosition {
+  lat: number;
+  lon: number;
+}
+
+export interface RouteLeg {
+  distance_meters: number;
+  duration_seconds: number;
+  start: GeoPosition | null;
+  end: GeoPosition | null;
+}
+
+export interface WalkingRoute {
+  provider: string;
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  distance_meters: number;
+  duration_seconds: number;
+  legs: RouteLeg[];
+  warnings: string[];
+}
+
 export interface PlanPayload {
   narrative_arc: string;
   checkpoints: Checkpoint[];
+  route?: WalkingRoute | null;
 }
 
 export interface TourPlan {

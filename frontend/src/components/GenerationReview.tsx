@@ -3,11 +3,13 @@ import {
   Check,
   CircleAlert,
   Coins,
+  Footprints,
   LoaderCircle,
   MessageCircle,
   Send
 } from "lucide-react";
 import { approveTour, reviseTour } from "../lib/api";
+import { formatWalkingRouteSummary } from "../lib/routes";
 import {
   ACTIVE_STATUSES,
   STATUS_LABELS,
@@ -205,9 +207,16 @@ export function GenerationReview({
             <div className="plan-map">
               <CheckpointMap
                 checkpoints={selectedPlan.payload.checkpoints}
+                route={selectedPlan.payload.route}
                 selectedId={selectedCheckpointId}
                 onSelect={setSelectedCheckpointId}
               />
+              {selectedPlan.payload.route && (
+                <div className="walking-summary-badge">
+                  <Footprints size={15} />
+                  {formatWalkingRouteSummary(selectedPlan.payload.route)}
+                </div>
+              )}
             </div>
             <div className="plan-summary">
               <p className="section-label">

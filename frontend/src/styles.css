@@ -113,6 +113,8 @@ textarea { line-height: 1.5; resize: vertical; }
 .ready-tour { --player-bottom: max(1rem, env(safe-area-inset-bottom)); --player-height: 64px; height: 100%; min-height: 0; overflow: hidden; position: relative; }
 .ready-map { inset: 0; position: absolute; }
 .ready-map .checkpoint-map, .ready-map .map-offline { border-radius: 0; height: 100%; min-height: 100%; }
+.walking-summary-badge { align-items: center; background: rgb(255 255 255 / 94%); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 5px 16px rgb(20 20 22 / 12%); color: var(--ink); display: flex; font-size: .72rem; font-weight: 700; gap: .4rem; left: 1rem; padding: .5rem .7rem; position: absolute; top: 5.75rem; z-index: 4; }
+.walking-summary-badge > svg { color: var(--red); }
 .checkpoint-map { border-radius: 12px; height: 100%; min-height: 360px; overflow: hidden; width: 100%; }
 .map-offline { align-items: center; background: #ededf0; border-radius: 12px; color: var(--muted); display: flex; flex-direction: column; gap: .45rem; height: 100%; justify-content: center; min-height: 300px; }
 .map-offline small { font-size: .75rem; }
@@ -182,8 +184,9 @@ textarea { line-height: 1.5; resize: vertical; }
 .approve-button > span { border-left: 1px solid rgb(255 255 255 / 35%); font-size: .67rem; margin-left: auto; padding-left: .65rem; }
 .form-message.padded { margin: 0 1.4rem 1rem; }
 .plan-column { display: grid; grid-template-rows: minmax(380px, 1.45fr) minmax(220px, .55fr); min-height: 0; }
-.plan-map { min-height: 0; padding: .75rem; }
+.plan-map { min-height: 0; padding: .75rem; position: relative; }
 .plan-map .checkpoint-map { min-height: 0; }
+.plan-map .walking-summary-badge { left: 1.25rem; top: 1.25rem; }
 .plan-summary { background: #fff; border-top: 1px solid var(--line); overflow-y: auto; padding: 1.3rem 1.5rem; }
 .plan-summary > .narrative-summary { color: #45454a; font-size: .9rem; line-height: 1.5; margin: 0 0 1rem; max-width: 72ch; }
 .brief-list { display: grid; gap: .4rem; }

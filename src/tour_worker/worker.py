@@ -11,6 +11,7 @@ from tour_gen.backend.supabase.audio import SupabaseAudioStore
 from tour_gen.backend.supabase.client import create_supabase_client
 from tour_gen.backend.supabase.tours import SupabaseTourStore
 from tour_gen.geo.geoencode.google_maps import GoogleMapsGeocoder
+from tour_gen.geo.routes.mapbox import MapboxRouter
 from tour_gen.tts.gemini import GeminiTTSProvider
 from tour_worker.models import (
     ProductionPayload,
@@ -35,7 +36,7 @@ async def process_event(job_id: UUID, *, client: Client | None = None) -> None:
             if isinstance(job.payload, RevisionPayload):
                 await plan_tour(
                     store,
-                    AgentTourPlanner(GoogleMapsGeocoder()),
+                    AgentTourPlanner(GoogleMapsGeocoder(), MapboxRouter()),
                     job.tour_id,
                     plan_id=job.payload.plan_id,
                     feedback=job.payload.feedback,
@@ -52,7 +53,9 @@ async def process_event(job_id: UUID, *, client: Client | None = None) -> None:
                 )
             else:
                 await plan_tour(
-                    store, AgentTourPlanner(GoogleMapsGeocoder()), job.tour_id
+                    store,
+                    AgentTourPlanner(GoogleMapsGeocoder(), MapboxRouter()),
+                    job.tour_id,
                 )
         except Exception:
             _fail_job(client, job_id)

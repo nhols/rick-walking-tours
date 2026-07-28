@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from tour_gen.geo.routes import WalkingRoute
+
 
 class TourStatus(str, Enum):
     RESEARCHING = "researching"
@@ -59,6 +61,7 @@ class TourCheckpoint(BaseModel):
 class TourPlanPayload(BaseModel):
     narrative_arc: str
     checkpoints: list[TourCheckpoint]
+    route: WalkingRoute | None = None
 
 
 class TourPlan(BaseModel):

@@ -1,5 +1,6 @@
 import { lazy, useState } from "react";
-import { ChevronUp, MapPin } from "lucide-react";
+import { ChevronUp, Footprints, MapPin } from "lucide-react";
+import { formatWalkingRouteSummary } from "../lib/routes";
 import type { TourBundle } from "../types";
 import { ChapterAudio } from "./ChapterAudio";
 
@@ -21,9 +22,16 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
       <div className="ready-map">
         <CheckpointMap
           checkpoints={checkpoints}
+          route={approvedPlan?.payload.route}
           selectedId={selected?.id}
           onSelect={setSelectedId}
         />
+        {approvedPlan?.payload.route && (
+          <div className="walking-summary-badge">
+            <Footprints size={15} />
+            {formatWalkingRouteSummary(approvedPlan.payload.route)}
+          </div>
+        )}
       </div>
       {selected && (
         <div className={`player-shell ${detailsOpen ? "is-expanded" : ""}`}>

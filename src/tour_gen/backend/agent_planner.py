@@ -1,15 +1,20 @@
 from typing import Any
 from uuid import uuid4
 
+import logfire
+
 from tour_gen import pipeline
 from tour_gen.backend.models import TourCheckpoint, TourInput, TourPlanPayload
 from tour_gen.backend.ports import GeneratedPlan
 from tour_gen.geo.geoencode import Geocoder
+from tour_gen.geo.models import GeoPosition
+from tour_gen.geo.routes import Router, WalkingRoute
 
 
 class AgentTourPlanner:
-    def __init__(self, geocoder: Geocoder) -> None:
+    def __init__(self, geocoder: Geocoder, router: Router | None = None) -> None:
         self.geocoder = geocoder
+        self.router = router
 
     async def plan(
         self,
@@ -50,10 +55,32 @@ class AgentTourPlanner:
                     formatted_address=point.formatted_address,
                 )
             )
+        route = await self._walking_route(checkpoints)
         return GeneratedPlan(
             payload=TourPlanPayload(
                 narrative_arc=run.output.narrative_arc,
                 checkpoints=checkpoints,
+                route=route,
             ),
             new_messages=run.new_agent_messages,
         )
+
+    async def _walking_route(
+        self,
+        checkpoints: list[TourCheckpoint],
+    ) -> WalkingRoute | None:
+        if self.router is None or len(checkpoints) < 2:
+            return None
+        try:
+            return await self.router.walking_route(
+                [
+                    GeoPosition(lat=checkpoint.lat, lon=checkpoint.lon)
+                    for checkpoint in checkpoints
+                ]
+            )
+        except Exception as error:
+            logfire.warning(
+                "Walking route generation failed: {error}",
+                error=str(error),
+            )
+            return None

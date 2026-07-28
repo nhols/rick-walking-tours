@@ -1,16 +1,18 @@
 import { useEffect, useRef } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
 import { useOnlineStatus } from "../lib/online";
-import type { Checkpoint } from "../types";
+import type { Checkpoint, WalkingRoute } from "../types";
 
 interface CheckpointMapProps {
   checkpoints: Checkpoint[];
+  route?: WalkingRoute | null;
   selectedId?: string;
   onSelect: (checkpointId: string) => void;
 }
 
 export default function CheckpointMap({
   checkpoints,
+  route,
   selectedId,
   onSelect
 }: CheckpointMapProps) {
@@ -28,6 +30,14 @@ export default function CheckpointMap({
       title
     }))
   );
+  const straightLineCoordinates: [number, number][] = checkpoints.map(
+    (checkpoint) => [checkpoint.lon, checkpoint.lat]
+  );
+  const routeCoordinates =
+    route?.geometry.type === "LineString" && route.geometry.coordinates.length >= 2
+      ? route.geometry.coordinates
+      : straightLineCoordinates;
+  const routeSignature = JSON.stringify(routeCoordinates);
   const selectedCheckpoint = checkpoints.find(
     (checkpoint) => checkpoint.id === selectedId
   );
@@ -59,6 +69,7 @@ export default function CheckpointMap({
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
 
     const bounds = new maplibregl.LngLatBounds();
+    routeCoordinates.forEach((coordinate) => bounds.extend(coordinate));
     const markers = checkpoints.map((checkpoint) => {
       bounds.extend([checkpoint.lon, checkpoint.lat]);
       const element = document.createElement("button");
@@ -77,30 +88,29 @@ export default function CheckpointMap({
     });
 
     map.on("load", () => {
-      map.addSource("route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: checkpoints.map((checkpoint) => [
-              checkpoint.lon,
-              checkpoint.lat
-            ])
+      if (routeCoordinates.length >= 2) {
+        map.addSource("route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: routeCoordinates
+            }
           }
-        }
-      });
-      map.addLayer({
-        id: "route",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": "#e6323b",
-          "line-width": 4,
-          "line-opacity": 0.8
-        }
-      });
+        });
+        map.addLayer({
+          id: "route",
+          type: "line",
+          source: "route",
+          paint: {
+            "line-color": "#e6323b",
+            "line-width": 4,
+            "line-opacity": 0.8
+          }
+        });
+      }
       if (checkpoints.length > 1) {
         map.fitBounds(bounds, { padding: 56, maxZoom: 15 });
       }
@@ -111,7 +121,7 @@ export default function CheckpointMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [checkpointSignature, online]);
+  }, [checkpointSignature, routeSignature, online]);
 
   useEffect(() => {
     if (!mapRef.current) return;
