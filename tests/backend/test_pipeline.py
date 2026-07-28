@@ -32,6 +32,7 @@ class PlanningPipelineTest(unittest.TestCase):
                     context,
                     CheckpointResearchOutput(
                         narrative_arc="Test route",
+                        response_to_user="I created the requested route.",
                         ordered_checkpoints=[
                             CheckpointProposal(
                                 title=f"Stop {index}",

@@ -6,7 +6,7 @@ from tour_gen.geo.routes.mapbox import _parse_mapbox_response
 
 
 class RouteModelTest(unittest.TestCase):
-    def test_plan_payload_without_route_remains_valid(self) -> None:
+    def test_older_plan_payload_remains_valid(self) -> None:
         payload = TourPlanPayload.model_validate(
             {
                 "narrative_arc": "Past to present",
@@ -15,6 +15,7 @@ class RouteModelTest(unittest.TestCase):
         )
 
         self.assertIsNone(payload.route)
+        self.assertIsNone(payload.response_to_user)
 
 
 class MapboxRouteTest(unittest.TestCase):

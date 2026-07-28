@@ -47,6 +47,12 @@ For each checkpoint, set distance_tool_place_name to the exact place name you
 passed to estimate_place_distances, and explain briefly why it appears at that
 point in the route. Return a concise narrative arc for the full tour.
 
+In response_to_user, address the user directly in one to three concise
+sentences. For an initial plan, summarize what you created. For a revision,
+respond explicitly to the feedback and state what changed. If any part of the
+request cannot be applied, explain why instead of implying that it was applied.
+Do not use response_to_user for the narrative arc.
+
 Use the estimate_place_distances tool with the complete final shortlist before
 returning it. Use its map and crow-flies distances to avoid implausible routes,
 choose a practical walking order, and adapt to requests about distance,

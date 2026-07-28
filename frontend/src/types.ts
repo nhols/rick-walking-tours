@@ -24,6 +24,9 @@ export const STATUS_LABELS: Record<TourStatus, string> = {
 export interface TourInput {
   location: string;
   request: string;
+  min_stops?: number;
+  max_stops?: number;
+  max_checkpoint_distance_km?: number;
 }
 
 export interface Tour {
@@ -76,6 +79,7 @@ export interface WalkingRoute {
 export interface PlanPayload {
   narrative_arc: string;
   checkpoints: Checkpoint[];
+  response_to_user?: string | null;
   route?: WalkingRoute | null;
 }
 

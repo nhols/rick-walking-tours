@@ -60,6 +60,7 @@ class AgentTourPlanner:
             payload=TourPlanPayload(
                 narrative_arc=run.output.narrative_arc,
                 checkpoints=checkpoints,
+                response_to_user=run.output.response_to_user,
                 route=route,
             ),
             new_messages=run.new_agent_messages,

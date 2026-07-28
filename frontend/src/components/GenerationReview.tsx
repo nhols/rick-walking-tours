@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState, type FormEvent } from "react";
+import { lazy, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Check,
   CircleAlert,
@@ -31,9 +31,14 @@ export function GenerationReview({
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlan?.id);
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<string>();
   const [feedback, setFeedback] = useState("");
+  const [pendingFeedback, setPendingFeedback] = useState<{
+    text: string;
+    planId: string;
+  } | null>(null);
   const [busy, setBusy] = useState<"approve" | "feedback" | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
   const selectedPlan =
     bundle.plans.find((plan) => plan.id === selectedPlanId) ?? currentPlan;
   const canReview = bundle.tour.status === "awaiting_review" && currentPlan;
@@ -45,6 +50,22 @@ export function GenerationReview({
     setSelectedPlanId(currentPlan?.id);
     setSelectedCheckpointId(currentPlan?.payload.checkpoints[0]?.id);
   }, [currentPlan?.id]);
+
+  useEffect(() => {
+    if (!pendingFeedback) return;
+    if (currentPlan?.id !== pendingFeedback.planId) {
+      setPendingFeedback(null);
+      return;
+    }
+    if (!isActive && latestError && busy !== "feedback") {
+      setFeedback(pendingFeedback.text);
+      setPendingFeedback(null);
+    }
+  }, [busy, currentPlan?.id, isActive, latestError, pendingFeedback]);
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [currentPlan?.id, isActive, pendingFeedback]);
 
   useEffect(() => {
     if (!showApprovalDialog) return;
@@ -75,13 +96,17 @@ export function GenerationReview({
   async function submitFeedback(event: FormEvent) {
     event.preventDefault();
     if (!currentPlan || !feedback.trim()) return;
+    const submittedFeedback = feedback.trim();
+    setPendingFeedback({ text: submittedFeedback, planId: currentPlan.id });
+    setFeedback("");
     setBusy("feedback");
     setError(null);
     try {
-      await reviseTour(bundle.tour.id, currentPlan.id, feedback.trim());
-      setFeedback("");
+      await reviseTour(bundle.tour.id, currentPlan.id, submittedFeedback);
       await onChanged();
     } catch (feedbackError) {
+      setPendingFeedback(null);
+      setFeedback(submittedFeedback);
       setError(feedbackError instanceof Error ? feedbackError.message : "Feedback failed");
     } finally {
       setBusy(null);
@@ -107,7 +132,27 @@ export function GenerationReview({
         </div>
         <div className="conversation">
           <div className="message user-message">
-            <small>You</small><p>{bundle.tour.input.request}</p>
+            <small>You · tour specification</small>
+            <div className="tour-spec">
+              <div className="tour-spec-location">
+                <span>Location</span>
+                <strong>{bundle.tour.input.location}</strong>
+              </div>
+              <p className="tour-spec-description">{bundle.tour.input.request}</p>
+              <div className="tour-spec-meta">
+                <span>
+                  {formatStopRange(
+                    bundle.tour.input.min_stops,
+                    bundle.tour.input.max_stops
+                  )}
+                </span>
+                <span>
+                  {bundle.tour.input.max_checkpoint_distance_km !== undefined
+                    ? `Max ${bundle.tour.input.max_checkpoint_distance_km} km apart`
+                    : "Maximum distance not specified"}
+                </span>
+              </div>
+            </div>
           </div>
           {bundle.plans.map((plan) => (
             <div className="revision-thread" key={plan.id}>
@@ -124,7 +169,9 @@ export function GenerationReview({
                 }}
               >
                 <small>Tour plan · revision {plan.revision}</small>
-                <p className="narrative-summary">{plan.payload.narrative_arc}</p>
+                {plan.payload.response_to_user && (
+                  <p className="agent-response">{plan.payload.response_to_user}</p>
+                )}
                 <span>{plan.payload.checkpoints.length} checkpoints · View plan</span>
               </button>
               {bundle.tour.approved_plan_id === plan.id && (
@@ -135,11 +182,20 @@ export function GenerationReview({
               )}
             </div>
           ))}
-          {isActive && (
-            <div className="message agent-thinking">
-              {getActivityMessage(bundle.tour.status, bundle.plans.length > 0)}
+          {pendingFeedback && (
+            <div className="message user-message">
+              <small>You · feedback</small>
+              <p>{pendingFeedback.text}</p>
             </div>
           )}
+          {(isActive || pendingFeedback) && (
+            <div className="message agent-thinking">
+              {pendingFeedback
+                ? "Revising your tour plan…"
+                : getActivityMessage(bundle.tour.status, bundle.plans.length > 0)}
+            </div>
+          )}
+          <div ref={conversationEndRef} />
         </div>
         {canReview && (
           <form className="feedback-form" onSubmit={submitFeedback}>
@@ -304,6 +360,12 @@ export function GenerationReview({
       )}
     </>
   );
+}
+
+function formatStopRange(minStops?: number, maxStops?: number): string {
+  if (minStops === undefined || maxStops === undefined) return "Stops not specified";
+  if (minStops === maxStops) return `${minStops} stops`;
+  return `${minStops}–${maxStops} stops`;
 }
 
 function getStatusMessage(status: TourStatus, hasPlan: boolean): string {

@@ -29,6 +29,7 @@ CHECKPOINTS = [
 RESEARCH_RUN = CheckpointResearchRun(
     output=CheckpointResearchOutput(
         narrative_arc="Past to present",
+        response_to_user="I created a two-stop history walk.",
         ordered_checkpoints=CHECKPOINTS,
     ),
     coordinates=[
@@ -68,6 +69,10 @@ class AgentTourPlannerRouteTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(generated.payload.route, ROUTE)
+        self.assertEqual(
+            generated.payload.response_to_user,
+            "I created a two-stop history walk.",
+        )
         route_call = router.walking_route.await_args
         assert route_call is not None
         waypoints = route_call.args[0]

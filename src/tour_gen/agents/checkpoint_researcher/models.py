@@ -16,6 +16,7 @@ class CheckpointProposal(BaseModel):
 class CheckpointResearchOutput(BaseModel):
     ordered_checkpoints: list[CheckpointProposal] = Field(min_length=1)
     narrative_arc: str = Field(min_length=1, max_length=600)
+    response_to_user: str = Field(min_length=1, max_length=600)
 
 
 @dataclass

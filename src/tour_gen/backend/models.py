@@ -61,6 +61,7 @@ class TourCheckpoint(BaseModel):
 class TourPlanPayload(BaseModel):
     narrative_arc: str
     checkpoints: list[TourCheckpoint]
+    response_to_user: str | None = None
     route: WalkingRoute | None = None
 
 

@@ -105,6 +105,7 @@ class AgentTourProducer:
 def _agent_plan(plan: TourPlanPayload) -> CheckpointResearchOutput:
     return CheckpointResearchOutput(
         narrative_arc=plan.narrative_arc,
+        response_to_user=plan.response_to_user or "Approved tour plan.",
         ordered_checkpoints=[
             CheckpointProposal(
                 title=item.title,

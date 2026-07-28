@@ -159,11 +159,18 @@ textarea { line-height: 1.5; resize: vertical; }
 .message small { font-size: .64rem; font-weight: 700; margin-bottom: .3rem; opacity: .65; text-transform: uppercase; }
 .message p { margin: 0; }
 .user-message { background: var(--subtle); margin-left: 2rem; }
+.tour-spec { display: grid; gap: .55rem; }
+.tour-spec-location { display: grid; gap: .05rem; }
+.tour-spec-location span { color: var(--muted); font-size: .6rem; font-weight: 700; text-transform: uppercase; }
+.tour-spec-location strong { color: var(--ink); font-size: .9rem; line-height: 1.3; }
+.tour-spec-description { color: #45454a; font-size: .78rem; line-height: 1.45; }
+.tour-spec-meta { display: flex; flex-wrap: wrap; gap: .35rem; }
+.tour-spec-meta span { background: #fff; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .64rem; font-weight: 700; padding: .28rem .5rem; }
 .approval-message p { align-items: center; display: flex; gap: .4rem; }
 .approval-message p svg { color: var(--red); }
 .agent-message { background: #fff; border: 1px solid var(--line); cursor: pointer; margin-right: 1.4rem; width: calc(100% - 1.4rem); }
 .agent-message.selected { border-color: var(--red); box-shadow: 0 5px 15px rgb(20 20 22 / 5%); }
-.agent-message .narrative-summary { color: var(--ink); font-size: .8rem; line-height: 1.45; margin: 0; }
+.agent-message .agent-response { color: var(--ink); font-size: .8rem; line-height: 1.45; margin: 0; }
 .agent-message span { color: var(--red); font-size: .69rem; margin-top: .45rem; }
 .agent-thinking { align-items: center; background: var(--red-soft); color: var(--red-dark); display: flex; gap: .5rem; margin-right: 5rem; }
 .feedback-form { border-top: 1px solid var(--line); padding: 1rem 1.4rem 1.3rem; }
