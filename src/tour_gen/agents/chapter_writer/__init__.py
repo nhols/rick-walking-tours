@@ -1,14 +1,12 @@
 from tour_gen.agents.chapter_writer.agent import chapter_writer_agent
+from tour_gen.agents.chapter_writer.instructions import add_plan_instruction
 from tour_gen.agents.chapter_writer.models import (
     Chapter,
     ChapterWriterDeps,
     ChapterWriterOutput,
     TTSStyle,
 )
-from tour_gen.agents.chapter_writer.validation import (
-    add_plan_instruction,
-    validate_chapters,
-)
+from tour_gen.agents.chapter_writer.validation import validate_chapters
 
 
 __all__ = [

@@ -5,9 +5,11 @@ from tour_gen.agents.checkpoint_researcher.models import (
     CheckpointResearchDeps,
     CheckpointResearchOutput,
 )
+from tour_gen.agents.checkpoint_researcher.instructions import (
+    add_location_instruction,
+)
 from tour_gen.agents.checkpoint_researcher.tools import estimate_place_distances
 from tour_gen.agents.checkpoint_researcher.validation import (
-    add_location_instruction,
     validate_checkpoint_output,
 )
 

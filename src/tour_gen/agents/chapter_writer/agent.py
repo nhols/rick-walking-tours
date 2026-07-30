@@ -5,8 +5,8 @@ from tour_gen.agents.chapter_writer.models import (
     ChapterWriterDeps,
     ChapterWriterOutput,
 )
+from tour_gen.agents.chapter_writer.instructions import add_plan_instruction
 from tour_gen.agents.chapter_writer.validation import (
-    add_plan_instruction,
     validate_chapters,
 )
 
