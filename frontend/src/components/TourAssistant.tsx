@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { LoaderCircle, Send, Sparkles, X } from "lucide-react";
+import FaceIcon from "@mui/icons-material/Face";
+import { LoaderCircle, Send, X } from "lucide-react";
 import { askTourAssistant } from "../lib/api";
 import { loadTourAssistantTurns } from "../lib/assistant";
 import type {
@@ -106,7 +107,7 @@ export function TourAssistant({
       aria-labelledby="tour-assistant-title"
     >
       <header className="tour-assistant-header">
-        <span className="tour-assistant-mark"><Sparkles size={16} /></span>
+        <span className="tour-assistant-mark"><FaceIcon sx={{ fontSize: 17 }} /></span>
         <div>
           <strong id="tour-assistant-title">Ask Rick</strong>
           <small>Your tour companion</small>

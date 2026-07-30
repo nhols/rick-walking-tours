@@ -1,5 +1,6 @@
 import { lazy, useEffect, useState } from "react";
-import { ChevronUp, Footprints, MapPin, Sparkles } from "lucide-react";
+import FaceIcon from "@mui/icons-material/Face";
+import { ChevronUp, Footprints, MapPin } from "lucide-react";
 import { formatWalkingRouteSummary } from "../lib/routes";
 import type { TourBundle } from "../types";
 import { ChapterAudio } from "./ChapterAudio";
@@ -46,7 +47,7 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
               setAssistantOpen(true);
             }}
           >
-            <Sparkles size={15} /> Ask Rick
+            <FaceIcon sx={{ fontSize: 15 }} /> Ask Rick
           </button>
         )}
       </div>
