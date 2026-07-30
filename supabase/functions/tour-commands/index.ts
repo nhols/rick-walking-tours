@@ -10,6 +10,7 @@ const corsHeaders = {
 interface CommandResult {
   tour_id: string;
   job_id: string;
+  invoke_worker?: boolean;
 }
 
 Deno.serve(async (request) => {
@@ -65,7 +66,7 @@ Deno.serve(async (request) => {
       return json({ error: "Unknown action" }, 400);
     }
 
-    await invokeWorker(result.job_id);
+    if (result.invoke_worker !== false) await invokeWorker(result.job_id);
     return json(result, 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Command failed";
@@ -81,7 +82,12 @@ async function command(
 ): Promise<CommandResult> {
   const { data, error } = await client.rpc(name, args);
   if (error) throw error;
-  if (!data || typeof data.tour_id !== "string" || typeof data.job_id !== "string") {
+  if (
+    !data ||
+    typeof data.tour_id !== "string" ||
+    typeof data.job_id !== "string" ||
+    (data.invoke_worker !== undefined && typeof data.invoke_worker !== "boolean")
+  ) {
     throw new Error("Command did not return a tour and job ID");
   }
   return data as CommandResult;
