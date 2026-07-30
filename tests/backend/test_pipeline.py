@@ -1,6 +1,8 @@
+import asyncio
 import unittest
 from types import SimpleNamespace
 from typing import cast
+from unittest.mock import AsyncMock, Mock, patch
 
 from pydantic_ai import BinaryContent, ModelMessage, ModelRetry, RunContext
 from pydantic_ai.messages import ModelRequest, UserPromptPart
@@ -11,7 +13,11 @@ from tour_gen.agents.checkpoint_researcher import (
     CheckpointResearchOutput,
     validate_checkpoint_output,
 )
+from tour_gen.agents.checkpoint_researcher.tools import estimate_place_distances
 from tour_gen.geo.distance_matrix import GeocodedPlace
+from tour_gen.geo.geoencode import Geocoder, GeoPosition
+from tour_gen.geo.geoencode.google_maps import GoogleMapsGeocoder
+from tour_gen.geo.geoencode.mapbox import MapboxGeocoder
 from tour_gen.geo.static_map import checkpoint_map_url
 from tour_gen.pipeline import _without_binary_content
 
@@ -88,6 +94,86 @@ class PlanningPipelineTest(unittest.TestCase):
         part = request.parts[0]
         assert isinstance(part, UserPromptPart)
         self.assertEqual(part.content, ["Numbered checkpoint map"])
+
+
+class DistanceToolTest(unittest.IsolatedAsyncioTestCase):
+    async def test_rejects_too_many_places_before_geocoding(self) -> None:
+        geocode = AsyncMock()
+        geocoder = cast(Geocoder, SimpleNamespace(geocode=geocode))
+        context = cast(
+            RunContext[CheckpointResearchDeps],
+            SimpleNamespace(
+                deps=CheckpointResearchDeps(
+                    location="Test City",
+                    geocoder=geocoder,
+                    max_stops=2,
+                )
+            ),
+        )
+
+        with (
+            patch(
+                "tour_gen.agents.checkpoint_researcher.tools."
+                "build_crow_flies_distance_matrix_result",
+                new=AsyncMock(),
+            ) as build_matrix,
+            self.assertRaisesRegex(ModelRetry, "at most 2 places"),
+        ):
+            await estimate_place_distances(context, ["One", "Two", "Three"])
+
+        geocode.assert_not_awaited()
+        build_matrix.assert_not_awaited()
+
+    async def test_google_geocoder_caches_query_and_bias(self) -> None:
+        geocoder = GoogleMapsGeocoder("test-key")
+        bias = GeoPosition(lat=51.5, lon=-0.1)
+        response = Mock()
+        response.json.return_value = {
+            "places": [{"location": {"latitude": 51.5, "longitude": -0.1}}]
+        }
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.post.return_value = response
+
+        with patch(
+            "tour_gen.geo.geoencode.google_maps.httpx.AsyncClient",
+            return_value=client,
+        ):
+            first, second = await asyncio.gather(
+                geocoder.geocode("Library", bias_position=bias),
+                geocoder.geocode("Library", bias_position=bias),
+            )
+            third = await geocoder.geocode("Library", bias_position=bias)
+
+        client.post.assert_awaited_once()
+        self.assertIs(first, second)
+        self.assertIs(second, third)
+
+    async def test_mapbox_geocoder_caches_query_and_bias(self) -> None:
+        geocoder = MapboxGeocoder("test-token")
+        bias = GeoPosition(lat=51.5, lon=-0.1)
+        response = Mock()
+        response.json.return_value = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-0.1, 51.5]},
+                    "properties": {},
+                }
+            ]
+        }
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.get.return_value = response
+
+        with patch(
+            "tour_gen.geo.geoencode.mapbox.httpx.AsyncClient",
+            return_value=client,
+        ):
+            first = await geocoder.geocode("Library", bias_position=bias)
+            second = await geocoder.geocode("Library", bias_position=bias)
+
+        client.get.assert_awaited_once()
+        self.assertIs(first, second)
 
 
 if __name__ == "__main__":

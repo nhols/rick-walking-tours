@@ -21,6 +21,13 @@ async def estimate_place_distances(
     The result only includes one half of the matrix: A>B, never B>A, and never
     the diagonal.
     """
+    if len(place_names) > ctx.deps.max_stops:
+        raise ModelRetry(
+            f"estimate_place_distances accepts at most {ctx.deps.max_stops} "
+            f"places, but received {len(place_names)}. Shorten the list before "
+            "trying again."
+        )
+
     if ctx.deps.location_geocode is None:
         ctx.deps.location_geocode = await ctx.deps.geocoder.geocode(ctx.deps.location)
 

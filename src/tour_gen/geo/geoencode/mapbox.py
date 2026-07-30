@@ -3,6 +3,8 @@ from collections.abc import Mapping
 from typing import Any, TypeAlias
 
 import httpx
+from async_lru import alru_cache
+
 from tour_gen.geo.geoencode import GeocodeResult, GeoPosition
 
 
@@ -18,6 +20,7 @@ class MapboxGeocoder:
             raise RuntimeError("MAPBOX_ACCESS_TOKEN must be set in .env")
         self.access_token: str = resolved_access_token
 
+    @alru_cache(maxsize=128)
     async def geocode(
         self,
         query: str,

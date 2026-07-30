@@ -1,9 +1,11 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class GeoPosition(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
 

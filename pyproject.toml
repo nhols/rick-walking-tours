@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "async-lru>=2.3.0",
     "google-genai>=2.7.0",
     "httpx>=0.28.1",
     "logfire[google-genai]>=4.34.0",
