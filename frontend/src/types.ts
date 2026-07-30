@@ -99,6 +99,33 @@ export interface Chapter {
   audio_path: string | null;
 }
 
+export interface TourAssistantTextContent {
+  type: "text";
+  text: string;
+}
+
+export interface TourAssistantInput {
+  version: 1;
+  content: TourAssistantTextContent[];
+  context: {
+    selected_chapter_id: string;
+    chapter_playback_seconds: number;
+  };
+}
+
+export interface TourAssistantOutput {
+  version: 1;
+  content: TourAssistantTextContent[];
+}
+
+export interface TourAssistantTurn {
+  thread_id: string;
+  turn: number;
+  input: TourAssistantInput;
+  output: TourAssistantOutput;
+  created_at: string;
+}
+
 export interface TourStatusEvent {
   details: { error?: string } | null;
 }

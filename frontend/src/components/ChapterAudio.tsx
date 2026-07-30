@@ -39,7 +39,13 @@ function getSignedAudioUrl(audioPath: string): Promise<string> {
   return request;
 }
 
-export function ChapterAudio({ chapter }: { chapter: Chapter }) {
+export function ChapterAudio({
+  chapter,
+  onPlaybackChange
+}: {
+  chapter: Chapter;
+  onPlaybackChange?: (seconds: number) => void;
+}) {
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const chapterId = chapter.id;
@@ -72,5 +78,14 @@ export function ChapterAudio({ chapter }: { chapter: Chapter }) {
 
   if (error) return <p className="inline-notice">{error}</p>;
   if (!source) return <div className="audio-skeleton">Loading audio…</div>;
-  return <audio className="audio-player" controls preload="none" src={source} />;
+  return (
+    <audio
+      className="audio-player"
+      controls
+      preload="none"
+      src={source}
+      onTimeUpdate={(event) => onPlaybackChange?.(event.currentTarget.currentTime)}
+      onSeeked={(event) => onPlaybackChange?.(event.currentTarget.currentTime)}
+    />
+  );
 }

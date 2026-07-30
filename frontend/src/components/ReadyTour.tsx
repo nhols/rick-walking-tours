@@ -1,8 +1,9 @@
-import { lazy, useState } from "react";
-import { ChevronUp, Footprints, MapPin } from "lucide-react";
+import { lazy, useEffect, useState } from "react";
+import { ChevronUp, Footprints, MapPin, Sparkles } from "lucide-react";
 import { formatWalkingRouteSummary } from "../lib/routes";
 import type { TourBundle } from "../types";
 import { ChapterAudio } from "./ChapterAudio";
+import { TourAssistant } from "./TourAssistant";
 
 
 const CheckpointMap = lazy(() => import("./CheckpointMap"));
@@ -14,8 +15,12 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
   const checkpoints = approvedPlan?.payload.checkpoints ?? [];
   const [selectedId, setSelectedId] = useState(checkpoints[0]?.id);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [playbackSeconds, setPlaybackSeconds] = useState(0);
   const selected = checkpoints.find((item) => item.id === selectedId) ?? checkpoints[0];
   const chapter = bundle.chapters.find((item) => item.checkpoint_id === selected?.id);
+
+  useEffect(() => setPlaybackSeconds(0), [chapter?.id]);
 
   return (
     <div className="ready-tour">
@@ -32,7 +37,27 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
             {formatWalkingRouteSummary(approvedPlan.payload.route)}
           </div>
         )}
+        {!assistantOpen && (
+          <button
+            className="ask-rick-launch"
+            type="button"
+            onClick={() => {
+              setDetailsOpen(false);
+              setAssistantOpen(true);
+            }}
+          >
+            <Sparkles size={15} /> Ask Rick
+          </button>
+        )}
       </div>
+      {assistantOpen && (
+        <TourAssistant
+          tourId={bundle.tour.id}
+          selectedChapterId={chapter?.id}
+          playbackSeconds={playbackSeconds}
+          onClose={() => setAssistantOpen(false)}
+        />
+      )}
       {selected && (
         <div className={`player-shell ${detailsOpen ? "is-expanded" : ""}`}>
           <aside
@@ -74,7 +99,14 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
               />
             </button>
             <div className="player-audio">
-              {chapter ? <ChapterAudio chapter={chapter} /> : <span>Audio unavailable</span>}
+              {chapter ? (
+                <ChapterAudio
+                  chapter={chapter}
+                  onPlaybackChange={setPlaybackSeconds}
+                />
+              ) : (
+                <span>Audio unavailable</span>
+              )}
             </div>
           </section>
         </div>

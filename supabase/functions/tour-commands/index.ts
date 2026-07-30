@@ -1,5 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { invokeWorker } from "../_shared/worker-invoker.ts";
+import {
+  invokeTourAssistant,
+  invokeWorker,
+  type TourAssistantInput
+} from "../_shared/worker-invoker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +42,26 @@ Deno.serve(async (request) => {
     const body = await request.json() as Record<string, unknown>;
     const action = string(body.action, "action");
     const idempotencyKey = optionalString(body.idempotency_key) ?? crypto.randomUUID();
+
+    if (action === "ask") {
+      const tourId = string(body.tour_id, "tour_id");
+      const { data: visibleTour, error: tourError } = await userClient
+        .from("tours")
+        .select("id")
+        .eq("id", tourId)
+        .maybeSingle();
+      if (tourError) throw tourError;
+      if (!visibleTour) return json({ error: "Tour not found" }, 404);
+
+      const answer = await invokeTourAssistant({
+        action: "ask_tour",
+        tour_id: tourId,
+        user_id: userData.user.id,
+        input: tourAssistantInput(body.input)
+      });
+      return json(answer, 200);
+    }
+
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
     let result: CommandResult;
@@ -133,6 +157,45 @@ function tourInput(body: Record<string, unknown>): Record<string, unknown> {
     tts_model: optionalString(body.tts_model),
     audio_format: optionalString(body.audio_format) ?? "wav"
   };
+}
+
+function tourAssistantInput(value: unknown): TourAssistantInput {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.content)) {
+    throw new Error("input must be a version 1 assistant document");
+  }
+  if (value.content.length === 0) throw new Error("input content is required");
+  const content = value.content.map((block) => {
+    if (!isRecord(block) || block.type !== "text") {
+      throw new Error("Only text input is currently supported");
+    }
+    return { type: "text" as const, text: string(block.text, "input text") };
+  });
+  if (content.map((block) => block.text).join("\n\n").length > 2_000) {
+    throw new Error("input text must be 2000 characters or fewer");
+  }
+  if (!isRecord(value.context)) throw new Error("input context is required");
+  const playbackSeconds = number(
+    value.context.chapter_playback_seconds,
+    "chapter_playback_seconds"
+  );
+  if (playbackSeconds < 0) {
+    throw new Error("chapter_playback_seconds must not be negative");
+  }
+  return {
+    version: 1,
+    content,
+    context: {
+      selected_chapter_id: string(
+        value.context.selected_chapter_id,
+        "selected_chapter_id"
+      ),
+      chapter_playback_seconds: playbackSeconds
+    }
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function required(name: string): string {

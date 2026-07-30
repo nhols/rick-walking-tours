@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from tour_gen.backend.assistant import TourAssistantInput
+
 
 class PlanPayload(BaseModel):
     kind: Literal["plan"]
@@ -28,3 +30,10 @@ type JobPayload = Annotated[
 class TourJob(BaseModel):
     tour_id: UUID
     payload: JobPayload
+
+
+class TourAssistantEvent(BaseModel):
+    action: Literal["ask_tour"]
+    tour_id: UUID
+    user_id: UUID
+    input: TourAssistantInput
