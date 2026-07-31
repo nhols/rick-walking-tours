@@ -9,7 +9,7 @@ import type {
 import { supabase } from "./supabase";
 
 const tourColumns =
-  "id,owner_id,status,title,input,approved_plan_id,is_public,updated_at";
+  "id,owner_id,status,title,input,approved_plan_id,is_public,updated_at,start_lat,start_lon";
 
 export async function loadOwnedTours(ownerId: string): Promise<Tour[]> {
   const { data, error } = await supabase
@@ -21,12 +21,12 @@ export async function loadOwnedTours(ownerId: string): Promise<Tour[]> {
   return attachCompletions((data ?? []) as Tour[]);
 }
 
-export async function loadPublicTours(): Promise<Tour[]> {
+export async function loadLibraryTours(ownerId: string): Promise<Tour[]> {
   const { data, error } = await supabase
     .from("tours")
     .select(tourColumns)
-    .eq("is_public", true)
     .eq("status", "ready")
+    .or(`owner_id.eq.${ownerId},is_public.eq.true`)
     .order("updated_at", { ascending: false });
   if (error) throw error;
 

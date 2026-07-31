@@ -38,6 +38,8 @@ export interface Tour {
   approved_plan_id: string | null;
   is_public: boolean;
   updated_at: string;
+  start_lat: number | null;
+  start_lon: number | null;
   completed_at?: string | null;
   average_rating?: number | null;
   review_count?: number;
