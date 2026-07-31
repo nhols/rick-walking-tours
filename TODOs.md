@@ -6,4 +6,4 @@
 - [x] Add social features so owners can publish tours and authenticated users can share, rate, and review public tours.
 - [ ] User AI invocation caps
 - [ ] Short voice clp as part of preview
-- [ ] Map view of tours
+- [x] Map view of tours
