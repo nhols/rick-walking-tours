@@ -1,7 +1,9 @@
 import {
+  Check,
   ChevronRight,
   LoaderCircle,
   MapPin,
+  Square,
   Star
 } from "lucide-react";
 import { STATUS_LABELS, type Tour } from "../types";
@@ -13,6 +15,7 @@ interface TourListProps {
   online: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onComplete: (tour: Tour) => void;
   publicMode?: boolean;
 }
 
@@ -61,6 +64,7 @@ function TourSection({
   tours,
   selectedId,
   onSelect,
+  onComplete,
   publicMode
 }: TourListProps & { title: string }) {
   if (tours.length === 0) return null;
@@ -74,8 +78,31 @@ function TourSection({
             className={`tour-row ${selectedId === tour.id ? "selected" : ""}`}
             key={tour.id}
           >
+            {tour.status === "ready" && (
+              <button
+                className={`tour-completion-checkbox ${tour.completed_at ? "completed" : ""}`}
+                type="button"
+                role="checkbox"
+                aria-checked={Boolean(tour.completed_at)}
+                aria-label={
+                  tour.completed_at
+                    ? `Remove completed status from ${tourName}`
+                    : `Mark ${tourName} completed`
+                }
+                title={
+                  tour.completed_at
+                    ? `Completed ${new Date(tour.completed_at).toLocaleDateString()}`
+                    : "Mark completed"
+                }
+                onClick={() => onComplete(tour)}
+              >
+                {tour.completed_at ? <Check size={18} /> : <Square size={20} />}
+              </button>
+            )}
             <button className="tour-row-main" onClick={() => onSelect(tour.id)}>
-              <span className="tour-row-icon"><MapPin size={18} /></span>
+              {tour.status !== "ready" && (
+                <span className="tour-row-icon"><MapPin size={18} /></span>
+              )}
               <span className="tour-row-copy">
                 <strong>{tourName}</strong>
                 {publicMode ? (

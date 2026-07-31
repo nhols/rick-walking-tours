@@ -39,8 +39,7 @@ export function TourReviewsDialog({
         bundle.tour.id,
         viewerId,
         rating,
-        body.trim(),
-        currentReview?.id
+        body.trim()
       );
       await onChanged();
     } catch (saveError) {

@@ -7,14 +7,18 @@ import {
   Footprints,
   LogOut,
   Plus,
-  Sparkles
+  Sparkles,
+  UserRound
 } from "lucide-react";
 import { useOnlineStatus } from "../lib/online";
 import { loadCreditBalance } from "../lib/credits";
+import { loadProfileStats } from "../lib/profile";
 import { supabase } from "../lib/supabase";
 import { loadOwnedTours, loadPublicTours } from "../lib/tours";
-import { ACTIVE_STATUSES, type Tour } from "../types";
+import { ACTIVE_STATUSES, type ProfileStats, type Tour } from "../types";
+import { CompletionDialog } from "./CompletionDialog";
 import { CreateTourDialog } from "./CreateTourDialog";
+import { ProfilePanel } from "./ProfilePanel";
 import { TourDetail } from "./TourDetail";
 import { TourList } from "./TourList";
 
@@ -22,14 +26,16 @@ export function TourLibrary({ session }: { session: Session }) {
   const online = useOnlineStatus();
   const [ownedTours, setOwnedTours] = useState<Tour[]>([]);
   const [publicTours, setPublicTours] = useState<Tour[]>([]);
-  const [view, setView] = useState<"library" | "public">("library");
+  const [view, setView] = useState<"library" | "public" | "profile">("library");
   const [credits, setCredits] = useState<number | null>(null);
+  const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
     new URLSearchParams(window.location.hash.slice(1)).get("tour")
   );
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [completionTour, setCompletionTour] = useState<Tour | null>(null);
 
   const refreshTours = useCallback(async () => {
     try {
@@ -42,14 +48,16 @@ export function TourLibrary({ session }: { session: Session }) {
 
   const refreshLibrary = useCallback(async () => {
     try {
-      const [nextOwnedTours, nextPublicTours, nextCredits] = await Promise.all([
+      const [nextOwnedTours, nextPublicTours, nextCredits, nextProfileStats] = await Promise.all([
         loadOwnedTours(session.user.id),
         loadPublicTours(),
-        loadCreditBalance()
+        loadCreditBalance(),
+        loadProfileStats()
       ]);
       setOwnedTours(nextOwnedTours);
       setPublicTours(nextPublicTours);
       setCredits(nextCredits);
+      setProfileStats(nextProfileStats);
       setLoadError(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Could not load tours");
@@ -81,8 +89,14 @@ export function TourLibrary({ session }: { session: Session }) {
   }, [online, refreshLibrary]);
 
   const visibleTours = online
-    ? view === "library" ? ownedTours : publicTours
+    ? view === "library" ? ownedTours : view === "public" ? publicTours : []
     : [];
+
+  const viewCopy = view === "library"
+    ? { eyebrow: "Your library", heading: "Walking tours" }
+    : view === "public"
+      ? { eyebrow: "Community", heading: "Public tours" }
+      : { eyebrow: "Your account", heading: "Profile & stats" };
 
   function selectTour(tourId: string | null) {
     setSelectedId(tourId);
@@ -96,7 +110,7 @@ export function TourLibrary({ session }: { session: Session }) {
 
   return (
     <main className="app-shell">
-      <aside className={`sidebar ${selectedId ? "has-selection" : ""}`}>
+      <aside className={`sidebar ${selectedId ? "has-selection" : ""} ${view === "profile" ? "profile-active" : ""}`}>
         <header className="sidebar-header">
           <div className="brand-lockup compact">
             <span className="brand-mark"><Footprints size={20} /></span>
@@ -112,8 +126,8 @@ export function TourLibrary({ session }: { session: Session }) {
         </header>
         <div className="library-heading">
           <div>
-            <p className="eyebrow">{view === "library" ? "Your library" : "Community"}</p>
-            <h2>{view === "library" ? "Walking tours" : "Public tours"}</h2>
+            <p className="eyebrow">{viewCopy.eyebrow}</p>
+            <h2>{viewCopy.heading}</h2>
           </div>
           <span className="credit-pill">{credits ?? "—"} credits</span>
         </div>
@@ -131,16 +145,23 @@ export function TourLibrary({ session }: { session: Session }) {
             <CircleAlert size={17} />{loadError}
           </div>
         )}
-        <div className="tour-list">
-          <TourList
-            tours={visibleTours}
-            loading={!libraryLoaded}
-            online={online}
-            selectedId={selectedId}
-            onSelect={selectTour}
-            publicMode={view === "public"}
-          />
-        </div>
+        {view !== "profile" ? (
+          <div className="tour-list">
+            <TourList
+              tours={visibleTours}
+              loading={!libraryLoaded}
+              online={online}
+              selectedId={selectedId}
+              onSelect={selectTour}
+              onComplete={setCompletionTour}
+              publicMode={view === "public"}
+            />
+          </div>
+        ) : (
+          <p className="profile-sidebar-copy">
+            Account details and lifetime activity across Rick.
+          </p>
+        )}
         <nav className="home-nav" aria-label="Tour collections">
           <button
             className={view === "library" ? "active" : ""}
@@ -158,6 +179,17 @@ export function TourLibrary({ session }: { session: Session }) {
           >
             <Compass size={22} />
           </button>
+          <button
+            className={view === "profile" ? "active" : ""}
+            aria-label="Profile and stats"
+            title="Profile and stats"
+            onClick={() => {
+              selectTour(null);
+              setView("profile");
+            }}
+          >
+            <UserRound size={21} />
+          </button>
         </nav>
         <footer className="sidebar-footer">
           <span className={`connection-dot ${online ? "online" : ""}`} />
@@ -165,7 +197,7 @@ export function TourLibrary({ session }: { session: Session }) {
         </footer>
       </aside>
 
-      <section className={`content ${selectedId ? "has-selection" : ""}`}>
+      <section className={`content ${selectedId ? "has-selection" : ""} ${view === "profile" ? "show-profile" : ""}`}>
         {selectedId ? (
           <TourDetail
             key={selectedId}
@@ -173,6 +205,12 @@ export function TourLibrary({ session }: { session: Session }) {
             viewerId={session.user.id}
             onBack={() => selectTour(null)}
             onChanged={refreshLibrary}
+          />
+        ) : view === "profile" ? (
+          <ProfilePanel
+            session={session}
+            stats={profileStats}
+            loading={!libraryLoaded}
           />
         ) : (
           <WelcomePanel
@@ -190,6 +228,14 @@ export function TourLibrary({ session }: { session: Session }) {
             selectTour(tourId);
             void refreshLibrary();
           }}
+        />
+      )}
+      {completionTour && (
+        <CompletionDialog
+          tour={completionTour}
+          viewerId={session.user.id}
+          onClose={() => setCompletionTour(null)}
+          onCompleted={refreshLibrary}
         />
       )}
     </main>

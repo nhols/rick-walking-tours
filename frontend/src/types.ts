@@ -38,8 +38,36 @@ export interface Tour {
   approved_plan_id: string | null;
   is_public: boolean;
   updated_at: string;
+  completed_at?: string | null;
   average_rating?: number | null;
   review_count?: number;
+}
+
+export interface ProfileStats {
+  credits: number;
+  created: {
+    ready_tours: number;
+    public_tours: number;
+    distance_meters: number;
+    duration_seconds: number;
+  };
+  completed: {
+    tours: number;
+    distance_meters: number;
+    duration_seconds: number;
+  };
+  community: {
+    completions: number;
+    unique_walkers: number;
+    distance_meters: number;
+    duration_seconds: number;
+  };
+  reviews: {
+    left_count: number;
+    left_average: number | null;
+    owned_count: number;
+    owned_average: number | null;
+  };
 }
 
 export interface Checkpoint {

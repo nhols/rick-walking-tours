@@ -1,21 +1,39 @@
 import { supabase } from "./supabase";
 
+export interface EditableTourReview {
+  rating: number;
+  body: string;
+}
+
+export async function loadTourReview(
+  tourId: string,
+  userId: string
+): Promise<EditableTourReview | null> {
+  const { data, error } = await supabase
+    .from("tour_reviews")
+    .select("rating,body")
+    .eq("tour_id", tourId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { rating: Number(data.rating), body: data.body } : null;
+}
+
 export async function saveTourReview(
   tourId: string,
   userId: string,
   rating: number,
-  body: string,
-  reviewId?: string
+  body: string
 ) {
-  const query = reviewId
-    ? supabase.from("tour_reviews").update({ rating, body }).eq("id", reviewId)
-    : supabase.from("tour_reviews").insert({
-        tour_id: tourId,
-        user_id: userId,
-        rating,
-        body
-      });
-  const { error } = await query;
+  const { error } = await supabase.from("tour_reviews").upsert(
+    {
+      tour_id: tourId,
+      user_id: userId,
+      rating,
+      body
+    },
+    { onConflict: "tour_id,user_id" }
+  );
   if (error) throw error;
 }
 

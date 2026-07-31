@@ -18,7 +18,7 @@ export async function loadOwnedTours(ownerId: string): Promise<Tour[]> {
     .eq("owner_id", ownerId)
     .order("updated_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Tour[];
+  return attachCompletions((data ?? []) as Tour[]);
 }
 
 export async function loadPublicTours(): Promise<Tour[]> {
@@ -33,10 +33,14 @@ export async function loadPublicTours(): Promise<Tour[]> {
   const tours = (data ?? []) as Tour[];
   if (tours.length === 0) return tours;
 
-  const { data: reviewData, error: reviewError } = await supabase
-    .from("tour_reviews")
-    .select("tour_id,rating")
-    .in("tour_id", tours.map((tour) => tour.id));
+  const [reviewResult, completedTours] = await Promise.all([
+    supabase
+      .from("tour_reviews")
+      .select("tour_id,rating")
+      .in("tour_id", tours.map((tour) => tour.id)),
+    attachCompletions(tours)
+  ]);
+  const { data: reviewData, error: reviewError } = reviewResult;
   if (reviewError) throw reviewError;
 
   const ratings = new Map<string, number[]>();
@@ -46,7 +50,7 @@ export async function loadPublicTours(): Promise<Tour[]> {
     ratings.set(review.tour_id, values);
   }
 
-  return tours.map((tour) => {
+  return completedTours.map((tour) => {
     const values = ratings.get(tour.id) ?? [];
     return {
       ...tour,
@@ -56,6 +60,23 @@ export async function loadPublicTours(): Promise<Tour[]> {
       review_count: values.length
     };
   });
+}
+
+async function attachCompletions(tours: Tour[]): Promise<Tour[]> {
+  if (tours.length === 0) return tours;
+  const { data, error } = await supabase
+    .from("tour_completions")
+    .select("tour_id,completed_at")
+    .in("tour_id", tours.map((tour) => tour.id));
+  if (error) throw error;
+
+  const completedAtByTour = new Map(
+    (data ?? []).map((completion) => [completion.tour_id, completion.completed_at])
+  );
+  return tours.map((tour) => ({
+    ...tour,
+    completed_at: completedAtByTour.get(tour.id) ?? null
+  }));
 }
 
 export async function loadTourBundle(tourId: string): Promise<TourBundle> {
