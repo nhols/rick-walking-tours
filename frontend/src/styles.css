@@ -118,7 +118,9 @@ textarea { line-height: 1.5; resize: vertical; }
 .ask-rick-launch { align-items: center; background: rgb(255 255 255 / 94%); border: 1px solid var(--line); border-radius: 999px; bottom: calc(var(--player-bottom) + var(--player-height) + .75rem); box-shadow: 0 5px 16px rgb(20 20 22 / 12%); cursor: pointer; display: flex; font-size: .72rem; font-weight: 700; gap: .4rem; padding: .5rem .7rem; position: absolute; right: 1rem; z-index: 5; }
 .ask-rick-launch:hover { background: var(--red-soft); border-color: rgb(230 50 59 / 22%); color: var(--red-dark); }
 .ask-rick-launch > svg { color: var(--red); }
-.tour-assistant-panel { background: #fff; border: 1px solid var(--line); border-radius: 13px; bottom: calc(var(--player-bottom) + var(--player-height) + .75rem); box-shadow: 0 16px 42px rgb(20 20 22 / 20%); display: flex; flex-direction: column; min-height: 280px; overflow: hidden; position: absolute; right: 1rem; top: 5.75rem; width: min(400px, calc(100% - 2rem)); z-index: 8; }
+.tour-assistant-panel { background: #fff; border: 1px solid var(--line); border-radius: 13px; bottom: calc(var(--player-bottom) + var(--player-height) + .75rem); box-shadow: 0 16px 42px rgb(20 20 22 / 20%); display: flex; flex-direction: column; min-height: 280px; overflow: hidden; position: absolute; right: 1rem; top: 5.75rem; transform-origin: bottom right; width: min(400px, calc(100% - 2rem)); z-index: 8; }
+.tour-assistant-panel.is-open { animation: assistant-panel-in .2s cubic-bezier(.2, .8, .2, 1) both; }
+.tour-assistant-panel.is-closing { animation: assistant-panel-out .2s cubic-bezier(.4, 0, 1, 1) both; opacity: 0; pointer-events: none; transform: translateY(8px) scale(.985); }
 .tour-assistant-header { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: .65rem; grid-template-columns: auto 1fr auto; padding: .75rem .8rem; }
 .tour-assistant-mark { align-items: center; background: var(--red-soft); border-radius: 8px; color: var(--red); display: flex; height: 32px; justify-content: center; width: 32px; }
 .tour-assistant-header > div { display: grid; gap: .05rem; }
@@ -277,6 +279,8 @@ textarea { line-height: 1.5; resize: vertical; }
 .spin { animation: spin .9s linear infinite; }
 .spin-slow { animation: spin 3s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes assistant-panel-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes assistant-panel-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(.985); } }
 
 @media (max-width: 1050px) {
   .app-shell { grid-template-columns: 285px minmax(0, 1fr); }
@@ -316,4 +320,4 @@ textarea { line-height: 1.5; resize: vertical; }
 }
 
 @media (display-mode: standalone) { .sidebar, .detail-header { padding-top: max(1rem, env(safe-area-inset-top)); } }
-@media (prefers-reduced-motion: reduce) { .details-chevron, .map-marker-badge, .player-shell, .checkpoint-details-overlay { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .details-chevron, .map-marker-badge, .player-shell, .checkpoint-details-overlay { transition: none; } .tour-assistant-panel { animation: none !important; } }

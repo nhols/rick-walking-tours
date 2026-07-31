@@ -16,11 +16,13 @@ const QUICK_QUESTIONS = [
 ];
 
 export function TourAssistant({
+  open,
   tourId,
   selectedChapterId,
   playbackSeconds,
   onClose
 }: {
+  open: boolean;
   tourId: string;
   selectedChapterId: string | undefined;
   playbackSeconds: number;
@@ -61,11 +63,11 @@ export function TourAssistant({
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !sending) onClose();
+      if (open && event.key === "Escape" && !sending) onClose();
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose, sending]);
+  }, [onClose, open, sending]);
 
   async function send(text: string) {
     const question = text.trim();
@@ -101,9 +103,10 @@ export function TourAssistant({
 
   return (
     <section
-      className="tour-assistant-panel"
+      className={`tour-assistant-panel ${open ? "is-open" : "is-closing"}`}
       role="dialog"
       aria-modal="false"
+      aria-hidden={!open}
       aria-labelledby="tour-assistant-title"
     >
       <header className="tour-assistant-header">

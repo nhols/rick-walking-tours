@@ -8,6 +8,7 @@ import { TourAssistant } from "./TourAssistant";
 
 
 const CheckpointMap = lazy(() => import("./CheckpointMap"));
+const ASSISTANT_ANIMATION_MS = 200;
 
 export function ReadyTour({ bundle }: { bundle: TourBundle }) {
   const approvedPlan =
@@ -17,11 +18,21 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
   const [selectedId, setSelectedId] = useState(checkpoints[0]?.id);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantMounted, setAssistantMounted] = useState(false);
   const [playbackSeconds, setPlaybackSeconds] = useState(0);
   const selected = checkpoints.find((item) => item.id === selectedId) ?? checkpoints[0];
   const chapter = bundle.chapters.find((item) => item.checkpoint_id === selected?.id);
 
   useEffect(() => setPlaybackSeconds(0), [chapter?.id]);
+
+  useEffect(() => {
+    if (assistantOpen || !assistantMounted) return;
+    const timeout = window.setTimeout(
+      () => setAssistantMounted(false),
+      ASSISTANT_ANIMATION_MS
+    );
+    return () => window.clearTimeout(timeout);
+  }, [assistantMounted, assistantOpen]);
 
   return (
     <div className="ready-tour">
@@ -38,12 +49,13 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
             {formatWalkingRouteSummary(approvedPlan.payload.route)}
           </div>
         )}
-        {!assistantOpen && (
+        {!assistantMounted && (
           <button
             className="ask-rick-launch"
             type="button"
             onClick={() => {
               setDetailsOpen(false);
+              setAssistantMounted(true);
               setAssistantOpen(true);
             }}
           >
@@ -51,8 +63,9 @@ export function ReadyTour({ bundle }: { bundle: TourBundle }) {
           </button>
         )}
       </div>
-      {assistantOpen && (
+      {assistantMounted && (
         <TourAssistant
+          open={assistantOpen}
           tourId={bundle.tour.id}
           selectedChapterId={chapter?.id}
           playbackSeconds={playbackSeconds}
