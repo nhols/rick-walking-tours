@@ -25,15 +25,29 @@ export async function saveTourReview(
   rating: number,
   body: string
 ) {
-  const { error } = await supabase.from("tour_reviews").upsert(
-    {
-      tour_id: tourId,
-      user_id: userId,
-      rating,
-      body
-    },
-    { onConflict: "tour_id,user_id" }
-  );
+  const { data: existing, error: loadError } = await supabase
+    .from("tour_reviews")
+    .select("id")
+    .eq("tour_id", tourId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (loadError) throw loadError;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("tour_reviews")
+      .update({ rating, body })
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("tour_reviews").insert({
+    tour_id: tourId,
+    user_id: userId,
+    rating,
+    body
+  });
   if (error) throw error;
 }
 
